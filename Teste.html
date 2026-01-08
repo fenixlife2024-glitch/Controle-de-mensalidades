@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -224,6 +223,7 @@
         await setDoc(doc(db, "alunos", ra), window.alunos[ra]);
     };
 
+    // FUNÇÃO COM A LÓGICA DE CANAL DIFERENCIADA (PTC vs EXTRANET)
     function gerarTextoZap(aluno) {
         const hoje = new Date(); hoje.setHours(0,0,0,0);
         const mensalidade = aluno.mensalidades?.find(m => !m.pago);
@@ -231,15 +231,29 @@
         const dataVenc = new Date(mensalidade.vencimento + 'T00:00:00');
         const mesExtenso = nomesMesesLongos[mensalidade.mes];
         const anoRef = document.getElementById('anoRef').value;
+
+        // Caso de atraso
         if (hoje > dataVenc) {
             const diffDays = Math.ceil(Math.abs(hoje - dataVenc) / (1000 * 60 * 60 * 24));
             return `Olá ${aluno.nome}, tudo bem? Notamos que a sua mensalidade de ${mesExtenso} está em atraso há ${diffDays} dias. Precisamos regularizar sua situação no portal para evitar suspensão de serviços. Caso já tenha pago, desconsidere esta mensagem.`;
         }
+
+        // Caso de rematrícula (Meses 1 ou 7)
         if (mensalidade.mes === 1 || mensalidade.mes === 7) {
             const sem = mensalidade.mes === 1 ? '1' : '2';
-            return `🚀 Olá ${aluno.nome}, Não Pare de Evoluir!\n\nSua próxima conquista está esperando! A rematrícula ${anoRef}.${sem} já está liberada.\n\n👉 Pague o Boleto de ${mesExtenso} anexo e automaticamente ative sua vaga!\n\nNão deixe para a última hora. Vamos juntos para ${anoRef}! 🚀`;
+            const instrucaoPag = (aluno.categoria === 'PTC') 
+                ? `👉 Acesse o link:       e realize o pagamento da parcela de ${mesExtenso} para ativar sua vaga!`
+                : `👉 A mensalidade de ${mesExtenso} anexo e automaticamente ative sua vaga!`;
+
+            return `🚀 Olá ${aluno.nome}, Não Pare de Evoluir!\n\nSua próxima conquista está esperando! A rematrícula ${anoRef}.${sem} já está liberada.\n\n${instrucaoPag}\n\nNão deixe para a última hora. Vamos juntos para ${anoRef}! 🚀`;
         }
-        return `Olá ${aluno.nome}, tudo bem? \n\n🚀Passando para informar que o boleto de ${mesExtenso} está disponível em sua plataforma. \n\n👉Siga as orientações: \n👉Clique no ítem financeiro; \n👉Mensalidades e serviços; \n👉Selecione Pagar; Escolha Boleto, Pix ou Cartão. \n\n👉Dúvidas? Tutorial: https://www.youtube.com/watch?v=vcaDMgU-yg0`;
+
+        // Mensagem Mensalidade Padrão
+        const canalTexto = (aluno.categoria === 'PTC')
+            ? `o link para pagamento da mensalidade de ${mesExtenso} já está disponível Acesse:    .`
+            : `o boleto de ${mesExtenso} está disponível em sua plataforma.`;
+
+        return `Olá ${aluno.nome}, tudo bem? \n\n🚀Passando para informar que ${canalTexto} \n\n👉Siga as orientações: \n👉Clique no ítem financeiro; \n👉Mensalidades e serviços; \n👉Selecione Pagar; Escolha Boleto, Pix ou Cartão. \n\n👉Dúvidas? Tutorial: https://www.youtube.com/watch?v=vcaDMgU-yg0`;
     }
 
     function gerarTexto9Off(aluno) {
