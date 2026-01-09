@@ -9,35 +9,64 @@
     <style>
         :root { --primary: #1e293b; --accent: #3b82f6; --success: #22c55e; --warning: #eab308; --danger: #ef4444; --bg: #f8fafc; --sidebar-w: 240px; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 0; color: #334155; display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: var(--sidebar-w); background: var(--primary); color: white; display: none; flex-direction: column; z-index: 1001; }
+        
+        /* Sidebar com transição de recolhimento */
+        .sidebar { 
+            width: var(--sidebar-w); 
+            background: var(--primary); 
+            color: white; 
+            display: none; /* Ativado via JS no login */
+            flex-direction: column; 
+            z-index: 1001; 
+            transition: all 0.3s ease;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .sidebar.collapsed {
+            width: 0;
+            min-width: 0;
+        }
+
         .sidebar-header { padding: 20px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; text-transform: uppercase; }
         .sidebar-menu { flex-grow: 1; padding: 10px 0; }
         .menu-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; font-size: 14px; }
         .menu-item:hover, .menu-item.active { background: var(--accent); color: white; }
-        .view-container { flex-grow: 1; display: none; flex-direction: column; padding: 25px; overflow-y: auto; height: 100vh; box-sizing: border-box; }
+        
+        .view-container { flex-grow: 1; display: none; flex-direction: column; padding: 25px; overflow-y: auto; height: 100vh; box-sizing: border-box; transition: padding 0.3s ease; }
         .view-active { display: flex; }
+        
         .config-bar { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; align-items: flex-end; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .input-group { display: flex; flex-direction: column; gap: 5px; }
         label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; }
         .form-control { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; width: 100%; box-sizing: border-box; }
+        
         .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid var(--accent); }
         .card h4 { margin: 0 0 10px 0; font-size: 12px; color: #64748b; text-transform: uppercase; }
         .card .val { font-size: 24px; font-weight: 800; color: var(--primary); }
+        
         table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; }
         th { background: #f1f5f9; color: #475569; padding: 12px; text-align: left; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; }
         td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+        
         tr.row-pago { background-color: #f0fdf4 !important; }
         tr.row-enviado { background-color: #fffbeb !important; }
         tr.row-invalido { background-color: #fef2f2 !important; }
+        .nome-doc-pendente { background-color: #fef08a !important; color: #854d0e !important; padding: 2px 5px; border-radius: 4px; }
+
         .mes-box { width: 24px; height: 24px; border-radius: 5px; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; cursor: pointer; }
         .mes-pago { background: var(--success); color: white; border-color: #16a34a; }
         .mes-pendente { background: #f1f5f9; color: #94a3b8; }
+        
         .btn { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11px; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; text-decoration: none; }
         .btn-zap { background: #25D366; color: white; }
         .btn-primary { background: var(--accent); color: white; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-warning { background: var(--warning); color: white; }
+        
+        /* Botão de Toggle Lateral */
+        .btn-toggle { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--primary); padding: 5px; margin-right: 15px; display: flex; align-items: center; }
+
         .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
         .modal-content { background: white; padding: 25px; border-radius: 16px; width: 95%; max-width: 550px; max-height: 90vh; overflow-y: auto; }
         #login-screen { position: fixed; inset: 0; background: var(--primary); display: flex; justify-content: center; align-items: center; z-index: 2000; }
@@ -64,15 +93,14 @@
         <div class="menu-item active" onclick="trocarTela('mainContainer')">📂 Operacional</div>
         <div class="menu-item" onclick="trocarTela('painelGestao')">📊 Relatórios Direção</div>
     </div>
-    <div style="padding: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-        <label style="color: #94a3b8; margin-bottom: 5px; display: block;">Ticket Médio (R$)</label>
-        <input type="number" id="ticketMedio" class="form-control" value="70" oninput="renderizarPainel()" style="background: #334155; color: white; border: 1px solid #475569;">
-    </div>
 </div>
 
 <div class="view-container view-active" id="mainContainer">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-        <h1 style="margin:0; font-size: 22px; font-weight: 800;">Painel de Cobrança</h1>
+        <div style="display:flex; align-items:center;">
+            <button class="btn-toggle" onclick="toggleSidebar()">☰</button>
+            <h1 style="margin:0; font-size: 22px; font-weight: 800;">Painel de Cobrança</h1>
+        </div>
         <div style="display:flex; gap:8px; align-items:center;">
             <button onclick="abrirModalCadastro()" class="btn btn-primary">➕ Novo Aluno</button>
             <button onclick="editarSelecionado()" class="btn btn-warning" style="background:#6366f1">✏️ Editar Seleção</button>
@@ -152,9 +180,10 @@
 </div>
 
 <div class="view-container" id="painelGestao">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 25px;">
+    <div style="display:flex; align-items:center; margin-bottom: 25px;">
+        <button class="btn-toggle" onclick="toggleSidebar()">☰</button>
         <h1 style="margin:0; font-size: 22px; font-weight: 800;">Relatórios Executivos</h1>
-        <div style="display:flex; gap:10px; align-items:flex-end;">
+        <div style="display:flex; gap:10px; align-items:flex-end; margin-left: auto;">
             <div class="input-group">
                 <label>Mês Ref.</label>
                 <select id="mesRefDash" class="form-control" onchange="renderizarPainel()"></select>
@@ -186,6 +215,11 @@
     onAuthStateChanged(auth, user => { if (user) { document.getElementById('login-screen').style.display='none'; document.getElementById('mainSidebar').style.display='flex'; document.getElementById('mainContainer').style.display='flex'; carregarDados(); } });
     document.getElementById('btnLogin').addEventListener('click', async () => { try { await signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginPass').value); } catch(e) { alert("Acesso Negado"); } });
 
+    // FUNÇÃO DE TOGGLE DA BARRA LATERAL
+    window.toggleSidebar = function() {
+        document.getElementById('mainSidebar').classList.toggle('collapsed');
+    };
+
     async function carregarDados() {
         const snap = await getDocs(collection(db, "alunos"));
         window.alunos = {};
@@ -212,7 +246,6 @@
         }
     }
 
-    // MODAL DE CADASTRO/EDIÇÃO
     window.abrirModalCadastro = function() {
         document.getElementById('modalTitle').innerText = "Cadastrar Novo Aluno";
         document.getElementById('mRA').value = "";
@@ -278,7 +311,6 @@
     window.salvarAluno = async function() {
         const ra = document.getElementById('mRA').value.replace(/\D/g, '');
         if(!ra) return alert("RA é obrigatório");
-
         const mensalidades = [];
         document.querySelectorAll('#listaMensalidades > div').forEach(div => {
             mensalidades.push({
@@ -288,7 +320,6 @@
                 ano: document.getElementById('anoRef').value
             });
         });
-
         const dados = {
             ra: ra,
             nome: document.getElementById('mNome').value.trim(),
@@ -300,7 +331,6 @@
             docPendente: window.alunos[ra]?.docPendente || false,
             mensalidades: mensalidades
         };
-
         try {
             await setDoc(doc(db, "alunos", ra), dados);
             window.alunos[ra] = dados;
@@ -309,12 +339,9 @@
             renderizarPainel();
             atualizarOpcoesFiltros();
             alert("Dados salvos com sucesso!");
-        } catch (e) {
-            alert("Erro ao salvar: " + e.message);
-        }
+        } catch (e) { alert("Erro ao salvar: " + e.message); }
     }
 
-    // FUNÇÕES DE RENDERIZAÇÃO E OPERACIONAIS
     window.renderizar = function() {
         const t = document.getElementById('corpoTabela');
         const b = document.getElementById('busca').value.toLowerCase();
@@ -337,12 +364,15 @@
             const status = a.controleEnvio || 'Pendente';
             const tr = document.createElement('tr');
             tr.className = status==='Pago'?'row-pago':status==='Enviado'?'row-enviado':status==='Número Inválido'?'row-invalido':'';
+            
+            const classeNome = a.docPendente ? 'class="nome-doc-pendente"' : '';
+
             tr.innerHTML = `
                 <td><input type="checkbox" class="chk-aluno" data-ra="${a.ra}"></td>
                 <td><span class="star-icon ${a.marcado ? 'star-active' : ''}" onclick="toggleMarcador('${a.ra}')">★</span></td>
                 <td><span class="doc-icon ${a.docPendente ? 'doc-active' : ''}" onclick="toggleDoc('${a.ra}')">📄</span></td>
                 <td>${a.ra}</td>
-                <td onclick="abrirModalEdicao('${a.ra}')" style="cursor:pointer; color:var(--accent); font-weight:700;">${a.nome}</td>
+                <td onclick="abrirModalEdicao('${a.ra}')" style="cursor:pointer; color:var(--accent); font-weight:700;"><span ${classeNome}>${a.nome}</span></td>
                 <td><div style="display:flex; gap:4px; flex-wrap:wrap; max-width:200px;">${a.mensalidades.map((m,i)=>`<div class="mes-box ${m.pago?'mes-pago':'mes-pendente'}" onclick="togglePagamento('${a.ra}',${i})">${m.mes}</div>`).join('')}</div></td>
                 <td>
                     <select class="form-control" onchange="alterarStatus('${a.ra}', this.value)" style="font-size:10px; height:28px; padding:2px;">
@@ -359,7 +389,6 @@
         document.getElementById('contador').innerText = `${lista.length} Clientes`;
     }
 
-    // LÓGICA DE TEXTOS ZAP
     function gerarTextoZap(aluno) {
         const hoje = new Date(); hoje.setHours(0,0,0,0);
         const mensalidade = aluno.mensalidades?.find(m => !m.pago);
@@ -367,15 +396,18 @@
         const dataVenc = new Date(mensalidade.vencimento + 'T00:00:00');
         const mesExtenso = nomesMesesLongos[mensalidade.mes];
         const anoRef = document.getElementById('anoRef').value;
+
+        const termo = (aluno.controleEnvio === 'Enviado') ? 'ainda está' : 'já está';
+
         if (hoje > dataVenc) {
             const diffDays = Math.ceil(Math.abs(hoje - dataVenc) / (1000 * 60 * 60 * 24));
             return `Olá ${aluno.nome}, tudo bem? Notamos que a sua mensalidade de ${mesExtenso} está em atraso há ${diffDays} dias. Precisamos regularizar sua situação no portal para evitar suspensão de serviços. Caso já tenha pago, desconsidere esta mensagem.`;
         }
         if (mensalidade.mes === 1 || mensalidade.mes === 7) {
             const sem = mensalidade.mes === 1 ? '1' : '2';
-            return `🚀 Olá ${aluno.nome}, Não Pare de Evoluir!\n\nSua próxima conquista está esperando! A rematrícula ${anoRef}.${sem} já está liberada.\n\n👉 Pague o Boleto de ${mesExtenso} anexo e automaticamente ative sua vaga!\n\nNão deixe para a última hora. Vamos juntos para ${anoRef}! 🚀`;
+            return `🚀 Olá ${aluno.nome}, Não Pare de Evoluir!\n\nSua próxima conquista está esperando! A rematrícula ${anoRef}.${sem} ${termo} liberada.\n\n👉 Pague o Boleto de ${mesExtenso} anexo e automaticamente ative sua vaga!\n\nNão deixe para a última hora. Vamos juntos para ${anoRef}! 🚀`;
         }
-        return `Olá ${aluno.nome}, tudo bem? \n\n🚀Passando para informar que o boleto de ${mesExtenso} está disponível em sua plataforma. \n\n👉Siga as orientações: \n👉Clique no ítem financeiro; \n👉Mensalidades e serviços; \n👉Selecione Pagar; Escolha Boleto, Pix ou Cartão. \n\n👉Dúvidas? Tutorial: https://www.youtube.com/watch?v=vcaDMgU-yg0`;
+        return `Olá ${aluno.nome}, tudo bem? \n\n🚀Passando para informar que o boleto de ${mesExtenso} ${termo} disponível em sua plataforma. \n\n👉Siga as orientações: \n👉Clique no ítem financeiro; \n👉Mensalidades e serviços; \n👉Selecione Pagar; Escolha Boleto, Pix ou Cartão. \n\n👉Dúvidas? Tutorial: https://www.youtube.com/watch?v=vcaDMgU-yg0`;
     }
 
     function gerarTexto9Off(aluno) {
@@ -387,16 +419,12 @@
         const u = (aluno.unidade || "").toUpperCase();
         let contato = "(81) 99988-9803";
         let link = "https://wa.me/5581999889803";
-        
         if (u.includes("RECIFE")) { contato = "(81) 98261-7644"; link = "https://wa.me/5581982617644"; }
         else if (u.includes("CARPINA")) { contato = "(81) 99315-7905"; link = "https://wa.me/5581993157905"; }
-
         return `Olá ${aluno.nome}! 🎓\n\nIdentificamos uma pendência em sua *documentação acadêmica*.\n\nEssa pendência precisa ser regularizada o quanto antes, pois ela impede a efetivação da sua rematrícula e o seu avanço para o próximo semestre.\n\nPor favor, entre em contato com a secretaria da unidade ${aluno.unidade} para regularizar sua situação:\n\n👉 *Falar com a Secretaria agora:* ${link}\n\nEstamos à disposição para ajudar!`;
     }
 
-    // UTILITÁRIOS
     window.renderizarPainel = function() {
-        const ticket = parseFloat(document.getElementById('ticketMedio').value) || 70;
         const fUni = document.getElementById('filtroUnidade').value;
         const fCat = document.getElementById('filtroCategoria').value;
         const mesRef = parseInt(document.getElementById('mesRefDash').value);
@@ -452,7 +480,6 @@
         const selecionados = document.querySelectorAll('.chk-aluno:checked');
         if (selecionados.length === 0) return alert("Selecione ao menos um aluno.");
         if (!confirm(`Deseja excluir ${selecionados.length} aluno(s)?`)) return;
-        
         const batch = writeBatch(db);
         selecionados.forEach(chk => {
             const ra = chk.getAttribute('data-ra');
