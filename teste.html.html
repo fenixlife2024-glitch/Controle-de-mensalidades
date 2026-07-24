@@ -1,776 +1,744 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <title>Gestão Financeira Acadêmica - Oficial</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    <style>
-        :root { --primary: #1e293b; --accent: #3b82f6; --success: #22c55e; --warning: #eab308; --danger: #ef4444; --bg: #f8fafc; --sidebar-w: 240px; --chamado: #8b5cf6; --chamado-atrasado: #dc2626; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 0; color: #334155; display: flex; height: 100vh; overflow: hidden; }
-        
-        .sidebar { 
-            width: var(--sidebar-w); 
-            background: var(--primary); 
-            color: white; 
-            display: none; 
-            flex-direction: column; 
-            z-index: 1001; 
-            transition: all 0.3s ease;
-            overflow: hidden;
-            white-space: nowrap;
-        }
-        .sidebar.collapsed { width: 0; min-width: 0; }
-
-        .sidebar-header { padding: 20px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; text-transform: uppercase; }
-        .sidebar-menu { flex-grow: 1; padding: 10px 0; }
-        .menu-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; font-size: 14px; }
-        .menu-item:hover, .menu-item.active { background: var(--accent); color: white; }
-        
-        .view-container { flex-grow: 1; display: none; flex-direction: column; padding: 25px; overflow-y: auto; height: 100vh; box-sizing: border-box; transition: padding 0.3s ease; }
-        .view-active { display: flex; }
-        
-        .config-bar { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; align-items: flex-end; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .input-group { display: flex; flex-direction: column; gap: 5px; }
-        label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; }
-        .form-control { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; width: 100%; box-sizing: border-box; }
-        
-        select[multiple].form-control { height: 60px; padding: 4px; }
-
-        .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid var(--accent); }
-        .card h4 { margin: 0 0 10px 0; font-size: 12px; color: #64748b; text-transform: uppercase; }
-        .card .val { font-size: 24px; font-weight: 800; color: var(--primary); }
-        
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; }
-        th { background: #f1f5f9; color: #475569; padding: 12px; text-align: left; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; }
-        td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
-        
-        tr.row-pago { background-color: #f0fdf4 !important; }
-        tr.row-enviado { background-color: #fffbeb !important; }
-        tr.row-invalido { background-color: #fef2f2 !important; }
-        tr.row-chamado-atrasado { background-color: #fef2f2 !important; }
-        .nome-doc-pendente { background-color: #fef08a !important; color: #854d0e !important; padding: 2px 5px; border-radius: 4px; }
-
-        .mes-box { width: 24px; height: 24px; border-radius: 5px; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; cursor: pointer; }
-        .mes-pago { background: var(--success); color: white; border-color: #16a34a; }
-        .mes-pendente { background: #f1f5f9; color: #94a3b8; }
-        
-        .btn { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11px; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; text-decoration: none; }
-        .btn-zap { background: #25D366; color: white; }
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-danger { background: var(--danger); color: white; }
-        .btn-warning { background: var(--warning); color: white; }
-        .btn-success { background: var(--success); color: white; }
-        
-        .btn-toggle { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--primary); padding: 5px; margin-right: 15px; display: flex; align-items: center; }
-
-        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
-        .modal-content { background: white; padding: 25px; border-radius: 16px; width: 95%; max-width: 550px; max-height: 90vh; overflow-y: auto; }
-        #login-screen { position: fixed; inset: 0; background: var(--primary); display: flex; justify-content: center; align-items: center; z-index: 2000; }
-        .star-icon, .doc-icon, .chamado-icon { cursor: pointer; font-size: 18px; color: #cbd5e1; transition: 0.2s; text-decoration: none; }
-        .star-active { color: #f59e0b !important; }
-        .doc-active { color: var(--danger) !important; }
-        .chamado-active { color: var(--chamado) !important; text-shadow: 0 0 8px rgba(139, 92, 246, 0.5); }
-        .chamado-atrasado { color: var(--chamado-atrasado) !important; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-        .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
-        
-        /* Estilos para lista de chamados */
-        .chamado-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 10px; position: relative; }
-        .chamado-item.resolvido { opacity: 0.7; background: #f0fdf4; border-color: #86efac; }
-        .chamado-item.atrasado { border-color: var(--chamado-atrasado); background: #fef2f2; }
-        .chamado-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .chamado-protocolo { font-weight: 700; color: var(--chamado); font-size: 12px; background: #ede9fe; padding: 2px 8px; border-radius: 4px; }
-        .chamado-protocolo.atrasado { background: var(--chamado-atrasado); color: white; }
-        .chamado-data { font-size: 11px; color: #64748b; }
-        .chamado-motivo { font-size: 13px; color: #334155; margin-bottom: 8px; font-weight: 500; }
-        .chamado-retorno { font-size: 11px; color: #dc2626; font-weight: 600; background: #fef2f2; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .chamado-retorno.ok { color: #16a34a; background: #f0fdf4; }
-        .chamado-retorno.atrasado { background: var(--chamado-atrasado); color: white; animation: pulse 2s infinite; }
-        .btn-chamado-small { padding: 4px 8px; font-size: 10px; border-radius: 4px; }
-        .badge-chamados { position: absolute; top: -5px; right: -5px; background: var(--chamado); color: white; font-size: 9px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; }
-        .badge-chamados.atrasado { background: var(--chamado-atrasado); }
-        .chamado-retorno-central { font-size: 11px; color: #059669; background: #d1fae5; padding: 6px; border-radius: 4px; margin-top: 8px; border-left: 3px solid var(--success); }
-        .chamado-status { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-left: 8px; }
-        .chamado-status.pendente { background: #fef3c7; color: #92400e; }
-        .chamado-status.resolvido { background: #d1fae5; color: #065f46; }
-    </style>
+<meta charset="UTF-8">
+<title>Gestao Financeira Academica</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+:root{--primary:#1e293b;--accent:#3b82f6;--success:#22c55e;--warning:#eab308;--danger:#ef4444;--bg:#f8fafc;--sidebar-w:240px;--chamado:#8b5cf6;--chamado-atrasado:#dc2626}
+*{box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);margin:0;padding:0;color:#334155;display:flex;height:100vh;overflow:hidden}
+.sidebar{width:var(--sidebar-w);background:var(--primary);color:white;display:none;flex-direction:column;z-index:1001;transition:all .3s ease;overflow:hidden;white-space:nowrap}
+.sidebar.collapsed{width:0;min-width:0}
+.sidebar-header{padding:20px;font-weight:bold;border-bottom:1px solid rgba(255,255,255,.1);font-size:14px;text-transform:uppercase}
+.sidebar-menu{flex-grow:1;padding:10px 0}
+.menu-item{padding:12px 20px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:.2s;font-size:14px}
+.menu-item:hover,.menu-item.active{background:var(--accent);color:white}
+.view-container{flex-grow:1;display:none;flex-direction:column;padding:25px;overflow-y:auto;height:100vh;box-sizing:border-box}
+.view-active{display:flex}
+.config-bar{background:white;padding:15px;border-radius:10px;margin-bottom:20px;border:1px solid #e2e8f0;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:flex-end;box-shadow:0 2px 4px rgba(0,0,0,.02)}
+.input-group{display:flex;flex-direction:column;gap:5px}
+label{font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b}
+.form-control{padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;outline:none;width:100%;box-sizing:border-box;font-family:inherit}
+select[multiple].form-control{height:60px;padding:4px}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+.card{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.05);border-left:5px solid var(--accent)}
+.card h4{margin:0 0 10px 0;font-size:12px;color:#64748b;text-transform:uppercase}
+.card .val{font-size:24px;font-weight:800;color:var(--primary)}
+table{width:100%;border-collapse:collapse;background:white;border-radius:10px;overflow:hidden}
+th{background:#f1f5f9;color:#475569;padding:12px;text-align:left;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0;position:sticky;top:0}
+td{padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:13px}
+tr.row-pago{background-color:#f0fdf4!important}
+tr.row-enviado{background-color:#fffbeb!important}
+tr.row-invalido{background-color:#fef2f2!important}
+tr.row-chamado-atrasado{background-color:#fef2f2!important}
+.nome-doc-pendente{background-color:#fef08a!important;color:#854d0e!important;padding:2px 5px;border-radius:4px}
+.mes-box{width:24px;height:24px;border-radius:5px;border:1px solid #cbd5e1;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;cursor:pointer;user-select:none}
+.mes-pago{background:var(--success);color:white;border-color:#16a34a}
+.mes-pendente{background:#f1f5f9;color:#94a3b8}
+.btn{border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:11px;display:inline-flex;align-items:center;gap:6px;transition:.2s;text-decoration:none}
+.btn-zap{background:#25D366;color:white}
+.btn-primary{background:var(--accent);color:white}
+.btn-danger{background:var(--danger);color:white}
+.btn-warning{background:var(--warning);color:white}
+.btn-success{background:var(--success);color:white}
+.btn-secondary{background:#64748b;color:white}
+.btn-outline{background:transparent;border:1px solid #cbd5e1;color:#475569}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-toggle{background:none;border:none;cursor:pointer;font-size:20px;color:var(--primary);padding:5px;margin-right:15px;display:flex;align-items:center}
+.modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:1000;justify-content:center;align-items:center;backdrop-filter:blur(4px)}
+.modal-content{background:white;padding:25px;border-radius:16px;width:95%;max-width:550px;max-height:90vh;overflow-y:auto}
+.modal-wide{max-width:800px}
+#login-screen{position:fixed;inset:0;background:var(--primary);display:flex;justify-content:center;align-items:center;z-index:2000}
+.star-icon,.doc-icon,.chamado-icon{cursor:pointer;font-size:18px;color:#cbd5e1;transition:.2s;text-decoration:none}
+.star-active{color:#f59e0b!important}
+.doc-active{color:var(--danger)!important}
+.chamado-active{color:var(--chamado)!important;text-shadow:0 0 8px rgba(139,92,246,.5)}
+.chamado-atrasado{color:var(--chamado-atrasado)!important;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+.grid-form{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px}
+.chamado-item{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px;position:relative}
+.chamado-item.resolvido{opacity:.7;background:#f0fdf4;border-color:#86efac}
+.chamado-item.atrasado{border-color:var(--chamado-atrasado);background:#fef2f2}
+.chamado-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.chamado-protocolo{font-weight:700;color:var(--chamado);font-size:12px;background:#ede9fe;padding:2px 8px;border-radius:4px}
+.chamado-protocolo.atrasado{background:var(--chamado-atrasado);color:white}
+.chamado-data{font-size:11px;color:#64748b}
+.chamado-motivo{font-size:13px;color:#334155;margin-bottom:8px;font-weight:500}
+.chamado-retorno{font-size:11px;color:#dc2626;font-weight:600;background:#fef2f2;padding:4px 8px;border-radius:4px;display:inline-block}
+.chamado-retorno.ok{color:#16a34a;background:#f0fdf4}
+.chamado-retorno.atrasado{background:var(--chamado-atrasado);color:white;animation:pulse 2s infinite}
+.btn-chamado-small{padding:4px 8px;font-size:10px;border-radius:4px}
+.badge-chamados{position:absolute;top:-5px;right:-5px;background:var(--chamado);color:white;font-size:9px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
+.badge-chamados.atrasado{background:var(--chamado-atrasado)}
+.chamado-retorno-central{font-size:11px;color:#059669;background:#d1fae5;padding:6px;border-radius:4px;margin-top:8px;border-left:3px solid var(--success)}
+.chamado-status{font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:4px;display:inline-block;margin-left:8px}
+.chamado-status.pendente{background:#fef3c7;color:#92400e}
+.chamado-status.resolvido{background:#d1fae5;color:#065f46}
+.csv-preview{max-height:300px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;margin:15px 0}
+.csv-preview table{font-size:11px}
+.csv-preview th{padding:6px 8px}
+.csv-preview td{padding:4px 8px}
+.import-status{padding:10px;border-radius:6px;font-size:12px;margin-top:10px}
+.import-status.success{background:#f0fdf4;color:#166534;border:1px solid #86efac}
+.import-status.error{background:#fef2f2;color:#991b1b;border:1px solid #fca5a5}
+.import-status.info{background:#eff6ff;color:#1e40af;border:1px solid #93c5fd}
+.progress-bar{width:100%;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-top:10px}
+.progress-bar-fill{height:100%;background:var(--accent);width:0%;transition:width .3s ease}
+</style>
+<base target="_blank">
 </head>
 <body>
 
 <div id="login-screen">
-    <div class="login-box" style="background:white; padding:40px; border-radius:16px; width:300px;">
-        <h2 style="text-align:center; margin-top:0;">Login</h2>
-        <input type="email" id="loginEmail" placeholder="E-mail" class="form-control" style="margin-bottom:15px;">
-        <input type="password" id="loginPass" placeholder="Senha" class="form-control" style="margin-bottom:20px;">
-        <button id="btnLogin" style="background:var(--accent); color:white; border:none; padding:12px; border-radius:8px; cursor:pointer; font-weight:bold; width:100%;">Entrar</button>
-    </div>
+<div style="background:white;padding:40px;border-radius:16px;width:320px;box-shadow:0 20px 50px rgba(0,0,0,.3)">
+<h2 style="text-align:center;margin-top:0;color:var(--primary);font-size:22px">🔐 Login</h2>
+<p style="text-align:center;color:#64748b;font-size:12px;margin-bottom:20px">Gestao Financeira Academica</p>
+<input type="email" id="loginEmail" placeholder="E-mail" class="form-control" style="margin-bottom:10px">
+<input type="password" id="loginPass" placeholder="Senha" class="form-control" style="margin-bottom:10px">
+<button id="btnLogin" style="background:var(--accent);color:white;border:none;padding:12px;border-radius:8px;cursor:pointer;font-weight:bold;width:100%;font-size:14px;margin-bottom:10px">Entrar</button>
+<button id="btnDemo" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:10px;border-radius:8px;cursor:pointer;font-weight:600;width:100%;font-size:12px">🚀 Modo Demonstracao (Sem Login)</button>
+<div id="loginError" style="color:var(--danger);font-size:11px;margin-top:10px;text-align:center;display:none;padding:8px;background:#fef2f2;border-radius:6px"></div>
+</div>
 </div>
 
 <div class="sidebar" id="mainSidebar">
-    <div class="sidebar-header">Fluxo de Cobrança</div>
-    <div class="sidebar-menu">
-        <div class="menu-item active" onclick="trocarTela('mainContainer')">📂 Operacional</div>
-        <div class="menu-item" onclick="trocarTela('painelGestao')">📊 Relatórios Direção</div>
-    </div>
+<div class="sidebar-header">📚 Fluxo de Cobranca</div>
+<div class="sidebar-menu">
+<div class="menu-item active" onclick="trocarTela('mainContainer')">📂 Operacional</div>
+<div class="menu-item" onclick="trocarTela('painelGestao')">📊 Relatorios Direcao</div>
+</div>
 </div>
 
 <div class="view-container view-active" id="mainContainer">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-        <div style="display:flex; align-items:center;">
-            <button class="btn-toggle" onclick="toggleSidebar()">☰</button>
-            <h1 style="margin:0; font-size: 22px; font-weight: 800;">Painel de Cobrança</h1>
-        </div>
-        <div style="display:flex; gap:8px; align-items:center;">
-            <button onclick="abrirModalCadastro()" class="btn btn-primary">➕ Novo Aluno</button>
-            <button onclick="editarSelecionado()" class="btn btn-warning" style="background:#6366f1">✏️ Editar 1</button>
-            <button onclick="abrirModalLote()" class="btn btn-warning" style="background:#f59e0b">📅 Venc. Lote</button>
-            <button onclick="resetarStatusEnvio()" class="btn btn-warning">🔄 Resetar Status</button>
-            <button onclick="excluirSelecionados()" class="btn btn-danger">🗑️ Deletar</button>
-            <span id="contador" style="font-weight:700; color:var(--accent); font-size:11px; background:#e0f2fe; padding:5px 10px; border-radius:20px;">Sincronizando...</span>
-        </div>
-    </div>
-    
-    <div class="config-bar">
-        <div class="input-group">
-            <label>Período</label>
-            <select id="semestreSelect" class="form-control" onchange="carregarDados()">
-                <option value="all">Ano Completo</option>
-                <option value="1">1º Semestre</option>
-                <option value="2">2º Semestre</option>
-            </select>
-        </div>
-        <div class="input-group"><label>Ano</label><input type="number" id="anoRef" class="form-control" value="2026"></div>
-        
-        <div class="input-group">
-            <label>Unidades (Ctrl + Clique)</label>
-            <select id="filtroUnidade" class="form-control" multiple onchange="renderizar(); renderizarPainel();"></select>
-        </div>
-        
-        <div class="input-group">
-            <label>Status (Ctrl + Clique)</label>
-            <select id="filtroStatusEnvio" class="form-control" multiple onchange="renderizar()">
-                <option value="Pendente">⏳ Pendentes</option>
-                <option value="Enviado">📤 Enviados</option>
-                <option value="Pago">✅ Pagos</option>
-                <option value="Número Inválido">🚫 Inválidos</option>
-            </select>
-        </div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;flex-wrap:wrap;gap:10px">
+<div style="display:flex;align-items:center">
+<button class="btn-toggle" onclick="toggleSidebar()">☰</button>
+<h1 style="margin:0;font-size:22px;font-weight:800;color:var(--primary)">Painel de Cobranca</h1>
+</div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+<button onclick="abrirModalCadastro()" class="btn btn-primary">➕ Novo Aluno</button>
+<button onclick="editarSelecionado()" class="btn btn-warning" style="background:#6366f1">✏️ Editar 1</button>
+<button onclick="abrirModalLote()" class="btn btn-warning" style="background:#f59e0b">📅 Venc. Lote</button>
+<button onclick="resetarStatusEnvio()" class="btn btn-warning">🔄 Resetar Status</button>
+<button onclick="excluirSelecionados()" class="btn btn-danger">🗑️ Deletar</button>
+<span id="contador" style="font-weight:700;color:var(--accent);font-size:11px;background:#e0f2fe;padding:5px 10px;border-radius:20px">Sincronizando...</span>
+</div>
+</div>
 
-        <div class="input-group">
-            <label>Marcador ★</label>
-            <select id="filtroMarcado" class="form-control" onchange="renderizar()">
-                <option value="todos">Todos</option>
-                <option value="marcados">Estrela ★</option>
-            </select>
-        </div>
-        <div class="input-group"><label>Categoria</label><select id="filtroCategoria" class="form-control" onchange="renderizar(); renderizarPainel();"><option value="">Todas</option><option value="PTC">PTC</option><option value="Extranet">Extranet</option></select></div>
-        <div class="input-group"><label>Prazo 9% Off</label><input type="text" id="prazoCampanha" class="form-control" value="08/01" oninput="renderizar()"></div>
-        
-        <!-- NOVO FILTRO DE CHAMADOS -->
-        <div class="input-group">
-            <label>Chamados 🎫</label>
-            <select id="filtroChamados" class="form-control" onchange="renderizar()">
-                <option value="todos">Todos</option>
-                <option value="com_chamados">Com Chamados</option>
-                <option value="chamados_pendentes">Chamados Pendentes</option>
-                <option value="chamados_atrasados">Chamados Atrasados</option>
-            </select>
-        </div>
-        
-        <div class="input-group"><label style="color:var(--accent)">Importar CSV</label><input type="file" id="csvInput" accept=".csv" class="form-control" onchange="importarCSV(this)"></div>
-    </div>
+<div class="config-bar">
+<div class="input-group">
+<label>Periodo</label>
+<select id="semestreSelect" class="form-control" onchange="carregarDados()">
+<option value="all">Ano Completo</option>
+<option value="1">1º Semestre</option>
+<option value="2">2º Semestre</option>
+</select>
+</div>
+<div class="input-group"><label>Ano</label><input type="number" id="anoRef" class="form-control" value="2026"></div>
+<div class="input-group">
+<label>Unidades (Ctrl + Clique)</label>
+<select id="filtroUnidade" class="form-control" multiple onchange="renderizar();renderizarPainel();"></select>
+</div>
+<div class="input-group">
+<label>Status (Ctrl + Clique)</label>
+<select id="filtroStatusEnvio" class="form-control" multiple onchange="renderizar()">
+<option value="Pendente">⏳ Pendentes</option>
+<option value="Enviado">📤 Enviados</option>
+<option value="Pago">✅ Pagos</option>
+<option value="Numero Invalido">🚫 Invalidos</option>
+</select>
+</div>
+<div class="input-group">
+<label>Marcador ★</label>
+<select id="filtroMarcado" class="form-control" onchange="renderizar()">
+<option value="todos">Todos</option>
+<option value="marcados">Estrela ★</option>
+</select>
+</div>
+<div class="input-group"><label>Categoria</label><select id="filtroCategoria" class="form-control" onchange="renderizar();renderizarPainel();"><option value="">Todas</option><option value="PTC">PTC</option><option value="Extranet">Extranet</option></select></div>
+<div class="input-group"><label>Prazo 9% Off</label><input type="text" id="prazoCampanha" class="form-control" value="08/01" oninput="renderizar()"></div>
+<div class="input-group">
+<label>Chamados 🎫</label>
+<select id="filtroChamados" class="form-control" onchange="renderizar()">
+<option value="todos">Todos</option>
+<option value="com_chamados">Com Chamados</option>
+<option value="chamados_pendentes">Chamados Pendentes</option>
+<option value="chamados_atrasados">Chamados Atrasados</option>
+</select>
+</div>
+<div class="input-group">
+<label style="color:var(--accent)">Importar CSV</label>
+<input type="file" id="csvInput" accept=".csv,.txt" class="form-control" onchange="processarArquivoCSV(this)">
+</div>
+</div>
 
-    <input type="text" id="busca" placeholder="Pesquisar por nome ou RA..." class="form-control" style="width:100%; margin-bottom:15px; padding:12px;" onkeyup="renderizar()">
-    
-    <div style="flex-grow:1; overflow:auto; background:white; border-radius:12px; border:1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-        <table>
-            <thead><tr><th style="width:20px;"><input type="checkbox" onclick="toggleTodos(this)"></th><th style="width:30px;">★</th><th style="width:30px;">Doc</th><th style="width:30px;">🎫</th><th>RA</th><th>Nome do Aluno</th><th>Meses</th><th>Status</th><th>WhatsApp</th><th>Lembrete</th></tr></thead>
-            <tbody id="corpoTabela"></tbody>
-        </table>
-    </div>
+<input type="text" id="busca" placeholder="Pesquisar por nome ou RA..." class="form-control" style="width:100%;margin-bottom:15px;padding:12px" onkeyup="renderizar()">
+
+<div style="flex-grow:1;overflow:auto;background:white;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,.05)">
+<table>
+<thead><tr><th style="width:20px"><input type="checkbox" onclick="toggleTodos(this)"></th><th style="width:30px">★</th><th style="width:30px">Doc</th><th style="width:30px">🎫</th><th>RA</th><th>Nome do Aluno</th><th>Meses</th><th>Status</th><th>WhatsApp</th><th>Lembrete</th></tr></thead>
+<tbody id="corpoTabela"></tbody>
+</table>
+</div>
 </div>
 
 <div id="modal" class="modal">
-    <div class="modal-content">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h3 id="modalTitle" style="margin:0; font-size:18px;">Dados do Aluno</h3>
-            <button onclick="fecharModal()" style="border:none; background:none; cursor:pointer; font-size:28px; color:#94a3b8;">&times;</button>
-        </div>
-        <div class="grid-form">
-            <div class="input-group"><label>RA (Único)</label><input type="text" id="mRA" class="form-control"></div>
-            <div class="input-group"><label>Nome Completo</label><input type="text" id="mNome" class="form-control"></div>
-            <div class="input-group"><label>WhatsApp (DDD+Número)</label><input type="text" id="mTel" class="form-control"></div>
-            <div class="input-group"><label>Unidade</label><input type="text" id="mUnidade" class="form-control"></div>
-            <div class="input-group"><label>Categoria</label><select id="mCategoria" class="form-control"><option value="Extranet">Extranet</option><option value="PTC">PTC</option></select></div>
-            <div class="input-group"><label>Status de Envio</label><select id="mStatusEnvio" class="form-control"><option value="Pendente">Pendente</option><option value="Enviado">Enviado</option><option value="Pago">Pago</option><option value="Número Inválido">Inválido</option></select></div>
-        </div>
-        <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
-        <label style="margin-bottom:10px; display:block; font-weight:bold;">Vencimentos das Mensalidades:</label>
-        <div id="listaMensalidades" style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;"></div>
-        
-        <!-- SEÇÃO DE CHAMADOS -->
-        <hr style="border:0; border-top:2px solid #e2e8f0; margin:25px 0;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <label style="font-weight:bold; color:var(--chamado); display:flex; align-items:center; gap:8px;">
-                🎫 Chamados de Suporte
-                <span style="font-size:10px; font-weight:normal; color:#64748b; background:#f1f5f9; padding:2px 8px; border-radius:4px;">
-                    Aguarde retorno da central e confirme antes de dar baixa
-                </span>
-            </label>
-            <button onclick="abrirModalNovoChamado()" class="btn btn-primary" style="padding:6px 12px; font-size:11px;">➕ Novo Chamado</button>
-        </div>
-        <div id="listaChamados" style="max-height:300px; overflow-y:auto; margin-bottom:20px;">
-            <p style="color:#94a3b8; font-size:12px; text-align:center; padding:20px;">Nenhum chamado registrado</p>
-        </div>
-        
-        <button onclick="salvarAluno()" class="btn btn-primary" style="width:100%; padding:12px; justify-content:center; font-size:14px;">💾 Salvar Informações</button>
-    </div>
+<div class="modal-content">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+<h3 id="modalTitle" style="margin:0;font-size:18px;color:var(--primary)">Dados do Aluno</h3>
+<button onclick="fecharModal()" style="border:none;background:none;cursor:pointer;font-size:28px;color:#94a3b8">&times;</button>
+</div>
+<div class="grid-form">
+<div class="input-group"><label>RA (Unico)</label><input type="text" id="mRA" class="form-control"></div>
+<div class="input-group"><label>Nome Completo</label><input type="text" id="mNome" class="form-control"></div>
+<div class="input-group"><label>WhatsApp (DDD+Numero)</label><input type="text" id="mTel" class="form-control"></div>
+<div class="input-group"><label>Unidade</label><input type="text" id="mUnidade" class="form-control"></div>
+<div class="input-group"><label>Categoria</label><select id="mCategoria" class="form-control"><option value="Extranet">Extranet</option><option value="PTC">PTC</option></select></div>
+<div class="input-group"><label>Status de Envio</label><select id="mStatusEnvio" class="form-control"><option value="Pendente">Pendente</option><option value="Enviado">Enviado</option><option value="Pago">Pago</option><option value="Numero Invalido">Invalido</option></select></div>
+</div>
+<hr style="border:0;border-top:1px solid #eee;margin:20px 0">
+<label style="margin-bottom:10px;display:block;font-weight:bold;color:var(--primary)">Vencimentos das Mensalidades:</label>
+<div id="listaMensalidades" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
+<hr style="border:0;border-top:2px solid #e2e8f0;margin:25px 0">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+<label style="font-weight:bold;color:var(--chamado);display:flex;align-items:center;gap:8px">🎫 Chamados de Suporte<span style="font-size:10px;font-weight:normal;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:4px">Aguarde retorno da central e confirme antes de dar baixa</span></label>
+<button onclick="abrirModalNovoChamado()" class="btn btn-primary" style="padding:6px 12px;font-size:11px">➕ Novo Chamado</button>
+</div>
+<div id="listaChamados" style="max-height:300px;overflow-y:auto;margin-bottom:20px"><p style="color:#94a3b8;font-size:12px;text-align:center;padding:20px">Nenhum chamado registrado</p></div>
+<button onclick="salvarAluno()" class="btn btn-primary" style="width:100%;padding:12px;justify-content:center;font-size:14px">💾 Salvar Informacoes</button>
+</div>
 </div>
 
-<!-- MODAL PARA NOVO CHAMADO -->
 <div id="modalChamado" class="modal">
-    <div class="modal-content" style="max-width: 450px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h3 style="margin:0; font-size:18px; color:var(--chamado);">🎫 Abrir Novo Chamado</h3>
-            <button onclick="fecharModalChamado()" style="border:none; background:none; cursor:pointer; font-size:28px; color:#94a3b8;">&times;</button>
-        </div>
-        <div class="input-group" style="margin-bottom:15px;">
-            <label>Motivo do Chamado *</label>
-            <input type="text" id="chamadoMotivo" class="form-control" placeholder="Ex: Problema no boleto, Dúvida sobre matrícula...">
-        </div>
-        <div class="input-group" style="margin-bottom:15px;">
-            <label>Protocolo da Central *</label>
-            <input type="text" id="chamadoProtocolo" class="form-control" placeholder="Ex: #123456">
-        </div>
-        <div class="input-group" style="margin-bottom:20px;">
-            <label>Data Prevista para Retorno *</label>
-            <input type="date" id="chamadoRetorno" class="form-control">
-        </div>
-        <div style="background:#fef3c7; border-left:4px solid #f59e0b; padding:12px; border-radius:4px; margin-bottom:20px; font-size:11px; color:#92400e;">
-            <strong>⚠️ Importante:</strong> Após abrir o chamado, aguarde o retorno da central. 
-            Quando resolverem, você deverá informar o aluno e dar baixa manualmente aqui no sistema.
-        </div>
-        <button onclick="salvarNovoChamado()" class="btn btn-primary" style="width:100%; padding:12px; justify-content:center; background:var(--chamado);">💾 Abrir Chamado</button>
-    </div>
+<div class="modal-content" style="max-width:450px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+<h3 style="margin:0;font-size:18px;color:var(--chamado)">🎫 Abrir Novo Chamado</h3>
+<button onclick="fecharModalChamado()" style="border:none;background:none;cursor:pointer;font-size:28px;color:#94a3b8">&times;</button>
+</div>
+<div class="input-group" style="margin-bottom:15px"><label>Motivo do Chamado *</label><input type="text" id="chamadoMotivo" class="form-control" placeholder="Ex: Problema no boleto, Duvida sobre matricula..."></div>
+<div class="input-group" style="margin-bottom:15px"><label>Protocolo da Central *</label><input type="text" id="chamadoProtocolo" class="form-control" placeholder="Ex: #123456"></div>
+<div class="input-group" style="margin-bottom:20px"><label>Data Prevista para Retorno *</label><input type="date" id="chamadoRetorno" class="form-control"></div>
+<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px;border-radius:4px;margin-bottom:20px;font-size:11px;color:#92400e"><strong>⚠️ Importante:</strong> Apos abrir o chamado, aguarde o retorno da central. Quando resolverem, voce devera informar o aluno e dar baixa manualmente aqui no sistema.</div>
+<button onclick="salvarNovoChamado()" class="btn btn-primary" style="width:100%;padding:12px;justify-content:center;background:var(--chamado)">💾 Abrir Chamado</button>
+</div>
 </div>
 
-<!-- MODAL PARA DAR BAIXA NO CHAMADO -->
 <div id="modalBaixa" class="modal">
-    <div class="modal-content" style="max-width: 450px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h3 style="margin:0; font-size:18px; color:var(--success);">✅ Dar Baixa no Chamado</h3>
-            <button onclick="fecharModalBaixa()" style="border:none; background:none; cursor:pointer; font-size:28px; color:#94a3b8;">&times;</button>
-        </div>
-        <div style="background:#dbeafe; border-left:4px solid var(--accent); padding:12px; border-radius:4px; margin-bottom:20px; font-size:12px;">
-            <strong>Chamado:</strong> <span id="baixaProtocolo"></span><br>
-            <strong>Motivo:</strong> <span id="baixaMotivo"></span><br>
-            <strong>Aberto em:</strong> <span id="baixaData"></span>
-        </div>
-        <div class="input-group" style="margin-bottom:20px;">
-            <label>Retorno da Central / Solução *</label>
-            <textarea id="baixaRetornoCentral" class="form-control" rows="3" placeholder="Descreva o que a central informou como solução..."></textarea>
-        </div>
-        <div style="background:#fef3c7; border-left:4px solid #f59e0b; padding:12px; border-radius:4px; margin-bottom:20px; font-size:11px; color:#92400e;">
-            <strong>📢 Lembre-se:</strong> Antes de dar baixa, informe o aluno sobre a resolução via WhatsApp!
-        </div>
-        <button onclick="confirmarBaixaChamado()" class="btn btn-success" style="width:100%; padding:12px; justify-content:center;">✅ Confirmar Baixa e Notificar</button>
-    </div>
+<div class="modal-content" style="max-width:450px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+<h3 style="margin:0;font-size:18px;color:var(--success)">✅ Dar Baixa no Chamado</h3>
+<button onclick="fecharModalBaixa()" style="border:none;background:none;cursor:pointer;font-size:28px;color:#94a3b8">&times;</button>
+</div>
+<div style="background:#dbeafe;border-left:4px solid var(--accent);padding:12px;border-radius:4px;margin-bottom:20px;font-size:12px"><strong>Chamado:</strong> <span id="baixaProtocolo"></span><br><strong>Motivo:</strong> <span id="baixaMotivo"></span><br><strong>Aberto em:</strong> <span id="baixaData"></span></div>
+<div class="input-group" style="margin-bottom:20px"><label>Retorno da Central / Solucao *</label><textarea id="baixaRetornoCentral" class="form-control" rows="3" placeholder="Descreva o que a central informou como solucao..."></textarea></div>
+<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px;border-radius:4px;margin-bottom:20px;font-size:11px;color:#92400e"><strong>📢 Lembre-se:</strong> Antes de dar baixa, informe o aluno sobre a resolucao via WhatsApp!</div>
+<button onclick="confirmarBaixaChamado()" class="btn btn-success" style="width:100%;padding:12px;justify-content:center">✅ Confirmar Baixa e Notificar</button>
+</div>
 </div>
 
 <div id="modalLote" class="modal">
-    <div class="modal-content" style="max-width: 400px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h3 style="margin:0; font-size:18px;">Vencimento em Lote</h3>
-            <button onclick="fecharModalLote()" style="border:none; background:none; cursor:pointer; font-size:28px; color:#94a3b8;">&times;</button>
-        </div>
-        <div class="input-group" style="margin-bottom:15px;">
-            <label>Mês para Atualizar</label>
-            <select id="loteMes" class="form-control">
-                <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
-                <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
-                <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
-                <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
-            </select>
-        </div>
-        <div class="input-group" style="margin-bottom:20px;">
-            <label>Nova Data de Vencimento</label>
-            <input type="date" id="loteData" class="form-control">
-        </div>
-        <button onclick="salvarLoteVencimento()" class="btn btn-primary" style="width:100%; padding:12px; justify-content:center;">💾 Aplicar aos Selecionados</button>
-    </div>
+<div class="modal-content" style="max-width:400px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+<h3 style="margin:0;font-size:18px;color:var(--primary)">📅 Vencimento em Lote</h3>
+<button onclick="fecharModalLote()" style="border:none;background:none;cursor:pointer;font-size:28px;color:#94a3b8">&times;</button>
+</div>
+<div class="input-group" style="margin-bottom:15px">
+<label>Mes para Atualizar</label>
+<select id="loteMes" class="form-control">
+<option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Marco</option>
+<option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+<option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+<option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+</select>
+</div>
+<div class="input-group" style="margin-bottom:20px"><label>Nova Data de Vencimento</label><input type="date" id="loteData" class="form-control"></div>
+<button onclick="salvarLoteVencimento()" class="btn btn-primary" style="width:100%;padding:12px;justify-content:center">💾 Aplicar aos Selecionados</button>
+</div>
+</div>
+
+<div id="modalImport" class="modal">
+<div class="modal-content modal-wide">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+<h3 style="margin:0;font-size:18px;color:var(--primary)">📥 Importar Alunos via CSV</h3>
+<button onclick="fecharModalImport()" style="border:none;background:none;cursor:pointer;font-size:28px;color:#94a3b8">&times;</button>
+</div>
+<div style="background:#eff6ff;border-left:4px solid var(--accent);padding:12px;border-radius:4px;margin-bottom:15px;font-size:12px;color:#1e40af"><strong>📋 Formato esperado:</strong> RA;NOME;WHATSAPP;UNIDADE;CATEGORIA<br><strong>💡 Dica:</strong> O sistema detecta automaticamente o separador (; ou ,). A primeira linha pode conter cabecalho.</div>
+<div style="display:flex;gap:10px;margin-bottom:15px;align-items:center">
+<div class="input-group" style="flex:1;margin:0"><label>Separador detectado</label><input type="text" id="csvSeparador" class="form-control" value=";" style="width:60px;text-align:center" readonly></div>
+<div class="input-group" style="flex:1;margin:0"><label>Total de registros</label><input type="text" id="csvTotal" class="form-control" value="0" style="width:80px;text-align:center" readonly></div>
+<div class="input-group" style="flex:1;margin:0"><label>RA ja existentes</label><input type="text" id="csvExistentes" class="form-control" value="0" style="width:80px;text-align:center;color:var(--danger)" readonly></div>
+</div>
+<label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:8px;display:block">Preview dos dados</label>
+<div class="csv-preview" id="csvPreview"></div>
+<div id="csvStatus" class="import-status info" style="display:none"></div>
+<div class="progress-bar" id="csvProgressBar" style="display:none"><div class="progress-bar-fill" id="csvProgressFill"></div></div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px">
+<button onclick="fecharModalImport()" class="btn btn-outline">Cancelar</button>
+<div style="display:flex;gap:10px">
+<button onclick="baixarModeloCSV()" class="btn btn-secondary">📄 Baixar Modelo</button>
+<button onclick="confirmarImportacao()" id="btnConfirmarImport" class="btn btn-primary" disabled>💾 Importar Selecionados</button>
+</div>
+</div>
+</div>
 </div>
 
 <div class="view-container" id="painelGestao">
-    <div style="display:flex; align-items:center; margin-bottom: 25px;">
-        <button class="btn-toggle" onclick="toggleSidebar()">☰</button>
-        <h1 style="margin:0; font-size: 22px; font-weight: 800;">Relatórios Executivos</h1>
-        <div style="display:flex; gap:10px; align-items:flex-end; margin-left: auto;">
-            <div class="input-group">
-                <label>Mês Ref.</label>
-                <select id="mesRefDash" class="form-control" onchange="renderizarPainel()"></select>
-            </div>
-            <button onclick="gerarRelatorioPDF()" class="btn btn-primary" style="padding:12px 25px;">📄 PDF Diretoria</button>
-        </div>
-    </div>
-    <div class="dash-grid">
-        <div class="card"><h4>Total Clientes</h4><span class="val" id="d-total">0</span></div>
-        <div class="card" style="border-left-color: var(--success)"><h4>Pagos (Mês)</h4><span class="val" id="d-pag-mes">0</span></div>
-        <div class="card" style="border-left-color: var(--danger)"><h4>Em Atraso</h4><span class="val" id="d-atraso">0</span></div>
-        <div class="card" style="border-left-color: var(--warning)"><h4>Enviados</h4><span class="val" id="d-env">0</span></div>
-        <div class="card" style="border-left-color: var(--chamado)"><h4>Chamados Pendentes</h4><span class="val" id="d-chamados">0</span></div>
-        <div class="card" style="border-left-color: var(--chamado-atrasado)"><h4>Chamados Atrasados</h4><span class="val" id="d-chamados-atrasados">0</span></div>
-    </div>
+<div style="display:flex;align-items:center;margin-bottom:25px">
+<button class="btn-toggle" onclick="toggleSidebar()">☰</button>
+<h1 style="margin:0;font-size:22px;font-weight:800;color:var(--primary)">Relatorios Executivos</h1>
+<div style="display:flex;gap:10px;align-items:flex-end;margin-left:auto">
+<div class="input-group"><label>Mes Ref.</label><select id="mesRefDash" class="form-control" onchange="renderizarPainel()"></select></div>
+<button onclick="gerarRelatorioPDF()" class="btn btn-primary" style="padding:12px 25px">📄 PDF Diretoria</button>
 </div>
-
+</div>
+<div class="dash-grid">
+<div class="card"><h4>Total Clientes</h4><span class="val" id="d-total">0</span></div>
+<div class="card" style="border-left-color:var(--success)"><h4>Pagos (Mes)</h4><span class="val" id="d-pag-mes">0</span></div>
+<div class="card" style="border-left-color:var(--danger)"><h4>Em Atraso</h4><span class="val" id="d-atraso">0</span></div>
+<div class="card" style="border-left-color:var(--warning)"><h4>Enviados</h4><span class="val" id="d-env">0</span></div>
+<div class="card" style="border-left-color:var(--chamado)"><h4>Chamados Pendentes</h4><span class="val" id="d-chamados">0</span></div>
+<div class="card" style="border-left-color:var(--chamado-atrasado)"><h4>Chamados Atrasados</h4><span class="val" id="d-chamados-atrasados">0</span></div>
+</div>
+</div>
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, doc, setDoc, getDocs, collection, updateDoc, writeBatch, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, setDoc, getDocs, collection, updateDoc, writeBatch, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-    const firebaseConfig = { apiKey: "AIzaSyC4_dlIiCaNHtj7eWB4kW200vnO6AuuuTA", authDomain: "reguacobranca.firebaseapp.com", projectId: "reguacobranca", storageBucket: "reguacobranca.firebasestorage.app", messagingSenderId: "85201788796", appId: "1:85201788796:web:25cf11a726cec89d248ef9" };
+const firebaseConfig = { apiKey: "AIzaSyC4_dlIiCaNHtj7eWB4kW200vnO6AuuuTA", authDomain: "reguacobranca.firebaseapp.com", projectId: "reguacobranca", storageBucket: "reguacobranca.firebasestorage.app", messagingSenderId: "85201788796", appId: "1:85201788796:web:25cf11a726cec89d248ef9" };
+
+let db = null, auth = null, firebaseOk = false;
+try {
     const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+    db = getFirestore(app);
+    auth = getAuth(app);
+    firebaseOk = true;
+} catch(e) {
+    console.warn("Firebase nao inicializado:", e.message);
+}
 
-    window.alunos = {};
-    let raEmEdicao = null;
-    let chamadoEmBaixa = null;
-    const nomesMesesLongos = ["", "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
+window.alunos = {};
+let raEmEdicao = null;
+let chamadoEmBaixa = null;
+let csvDadosPendentes = [];
+const nomesMesesLongos = ["", "JANEIRO", "FEVEREIRO", "MARCO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
 
-    onAuthStateChanged(auth, user => { if (user) { document.getElementById('login-screen').style.display='none'; document.getElementById('mainSidebar').style.display='flex'; document.getElementById('mainContainer').style.display='flex'; carregarDados(); } });
-    document.getElementById('btnLogin').addEventListener('click', async () => { try { await signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginPass').value); } catch(e) { alert("Acesso Negado"); } });
+// ========== LOGIN ==========
+if (auth) {
+    onAuthStateChanged(auth, user => { 
+        if (user) { 
+            document.getElementById('login-screen').style.display = 'none'; 
+            document.getElementById('mainSidebar').style.display = 'flex'; 
+            document.getElementById('mainContainer').style.display = 'flex'; 
+            carregarDados(); 
+        } 
+    });
+}
 
-    window.toggleSidebar = function() {
-        document.getElementById('mainSidebar').classList.toggle('collapsed');
-    };
+document.getElementById('btnLogin').addEventListener('click', async () => { 
+    const errDiv = document.getElementById('loginError');
+    errDiv.style.display = 'none';
+    if (!auth) {
+        errDiv.innerText = "Firebase nao disponivel. Use o Modo Demonstracao.";
+        errDiv.style.display = 'block';
+        return;
+    }
+    try { 
+        await signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginPass').value); 
+    } catch(e) { 
+        console.error("Erro login:", e);
+        errDiv.innerText = "Erro: " + (e.message || "Credenciais invalidas");
+        errDiv.style.display = 'block';
+    } 
+});
 
-    async function carregarDados() {
+// Modo Demonstracao
+document.getElementById('btnDemo').addEventListener('click', () => {
+    document.getElementById('login-screen').style.display = 'none'; 
+    document.getElementById('mainSidebar').style.display = 'flex'; 
+    document.getElementById('mainContainer').style.display = 'flex';
+    carregarDados();
+});
+
+window.toggleSidebar = function() {
+    document.getElementById('mainSidebar').classList.toggle('collapsed');
+};
+
+// ========== CARREGAR DADOS ==========
+window.carregarDados = async function() {
+    document.getElementById('contador').innerText = "Sincronizando...";
+    if (!db) {
+        document.getElementById('contador').innerText = "Modo Offline";
+        atualizarMesesReferencia();
+        renderizar();
+        renderizarPainel();
+        return;
+    }
+    try {
         const snap = await getDocs(collection(db, "alunos"));
         window.alunos = {};
-        snap.forEach(doc => { window.alunos[doc.id] = doc.data(); });
+        snap.forEach(d => { window.alunos[d.id] = d.data(); });
         atualizarOpcoesFiltros();
         atualizarMesesReferencia();
         renderizar();
         renderizarPainel();
+    } catch(e) {
+        console.error("Erro ao carregar:", e);
+        document.getElementById('contador').innerText = "Erro: " + e.message;
+        atualizarMesesReferencia();
+        renderizar();
+        renderizarPainel();
     }
+};
 
-    function atualizarMesesReferencia() {
-        const sem = document.getElementById('semestreSelect').value;
-        const select = document.getElementById('mesRefDash');
-        let mI = 1, mF = 12;
-        if(sem === "1") { mI = 1; mF = 6; }
-        else if(sem === "2") { mI = 7; mF = 12; }
-        select.innerHTML = '';
-        for(let i=mI; i<=mF; i++) {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.innerText = nomesMesesLongos[i];
-            if(new Date().getMonth()+1 === i) opt.selected = true;
-            select.appendChild(opt);
+window.atualizarMesesReferencia = function() {
+    const sem = document.getElementById('semestreSelect').value;
+    const select = document.getElementById('mesRefDash');
+    let mI = 1, mF = 12;
+    if(sem === "1") { mI = 1; mF = 6; }
+    else if(sem === "2") { mI = 7; mF = 12; }
+    select.innerHTML = '';
+    for(let i = mI; i <= mF; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.innerText = nomesMesesLongos[i];
+        if(new Date().getMonth() + 1 === i) opt.selected = true;
+        select.appendChild(opt);
+    }
+};
+
+// ========== MODAL CADASTRO ==========
+window.abrirModalCadastro = function() {
+    raEmEdicao = null;
+    document.getElementById('modalTitle').innerText = "Cadastrar Novo Aluno";
+    document.getElementById('mRA').value = "";
+    document.getElementById('mRA').disabled = false;
+    document.getElementById('mNome').value = "";
+    document.getElementById('mTel').value = "";
+    document.getElementById('mUnidade').value = "";
+    document.getElementById('mCategoria').value = "Extranet";
+    document.getElementById('mStatusEnvio').value = "Pendente";
+
+    const sem = document.getElementById('semestreSelect').value; 
+    const ano = document.getElementById('anoRef').value;
+    let mI = sem === "1" ? 1 : sem === "2" ? 7 : 1; 
+    let mF = sem === "1" ? 6 : sem === "2" ? 12 : 12;
+
+    const lista = document.getElementById('listaMensalidades');
+    lista.innerHTML = '';
+    for(let i = mI; i <= mF; i++) {
+        renderizarLinhaMensalidade({mes: i, vencimento: ano + "-" + String(i).padStart(2, '0') + "-10", pago: false}, i - mI);
+    }
+    renderizarListaChamados([]);
+    document.getElementById('modal').style.display = 'flex';
+};
+
+window.editarSelecionado = function() {
+    const selecionados = document.querySelectorAll('.chk-aluno:checked');
+    if(selecionados.length !== 1) return alert("Selecione exatamente 1 aluno para editar.");
+    const ra = selecionados[0].getAttribute('data-ra');
+    abrirModalEdicao(ra);
+};
+
+window.abrirModalEdicao = function(ra) {
+    raEmEdicao = ra;
+    const aluno = window.alunos[ra];
+    if(!aluno) return alert("Aluno nao encontrado.");
+    document.getElementById('modalTitle').innerText = "Editando: " + aluno.nome;
+    document.getElementById('mRA').value = aluno.ra;
+    document.getElementById('mRA').disabled = true;
+    document.getElementById('mNome').value = aluno.nome;
+    document.getElementById('mTel').value = aluno.tel;
+    document.getElementById('mUnidade').value = aluno.unidade;
+    document.getElementById('mCategoria').value = aluno.categoria || "Extranet";
+    document.getElementById('mStatusEnvio').value = aluno.controleEnvio || "Pendente";
+
+    const lista = document.getElementById('listaMensalidades');
+    lista.innerHTML = '';
+    (aluno.mensalidades || []).forEach((m, idx) => {
+        renderizarLinhaMensalidade(m, idx);
+    });
+    renderizarListaChamados(aluno.chamados || []);
+    document.getElementById('modal').style.display = 'flex';
+};
+
+window.renderizarLinhaMensalidade = function(m, idx) {
+    const div = document.createElement('div');
+    div.style = 'display:flex;justify-content:space-between;align-items:center;padding:5px;border-bottom:1px solid #f1f5f9;gap:10px';
+    div.innerHTML = '<span style="font-size:12px;font-weight:600;width:60px">Mes ' + m.mes + '</span><input type="date" value="' + m.vencimento + '" class="form-control m-venc" data-mes="' + m.mes + '" style="width:140px"><label style="font-size:9px;display:flex;align-items:center;gap:4px"><input type="checkbox" class="m-pago" ' + (m.pago ? 'checked' : '') + '> Pago</label>';
+    document.getElementById('listaMensalidades').appendChild(div);
+};
+
+// ========== CHAMADOS ==========
+window.abrirModalNovoChamado = function() {
+    document.getElementById('chamadoMotivo').value = '';
+    document.getElementById('chamadoProtocolo').value = '';
+    document.getElementById('chamadoRetorno').value = '';
+    document.getElementById('modalChamado').style.display = 'flex';
+};
+
+window.fecharModalChamado = function() {
+    document.getElementById('modalChamado').style.display = 'none';
+};
+
+window.salvarNovoChamado = async function() {
+    const motivo = document.getElementById('chamadoMotivo').value.trim();
+    const protocolo = document.getElementById('chamadoProtocolo').value.trim();
+    const retorno = document.getElementById('chamadoRetorno').value;
+    if(!motivo || !protocolo || !retorno) return alert("Preencha todos os campos obrigatorios!");
+
+    const novoChamado = {
+        id: Date.now().toString(),
+        motivo: motivo,
+        protocolo: protocolo,
+        dataRetorno: retorno,
+        dataAbertura: new Date().toISOString().split('T')[0],
+        resolvido: false,
+        retornoCentral: null,
+        dataBaixa: null
+    };
+
+    const aluno = window.alunos[raEmEdicao];
+    if(!aluno) return;
+    if(!aluno.chamados) aluno.chamados = [];
+    aluno.chamados.push(novoChamado);
+
+    if (db) {
+        try { await updateDoc(doc(db, "alunos", raEmEdicao), { chamados: aluno.chamados }); }
+        catch(e) { console.error(e); }
+    }
+    fecharModalChamado();
+    renderizarListaChamados(aluno.chamados);
+    renderizar();
+    renderizarPainel();
+};
+
+window.abrirModalBaixa = function(chamadoId) {
+    const aluno = window.alunos[raEmEdicao];
+    const chamado = aluno.chamados.find(c => c.id === chamadoId);
+    if(!chamado) return;
+    chamadoEmBaixa = chamadoId;
+    document.getElementById('baixaProtocolo').innerText = chamado.protocolo;
+    document.getElementById('baixaMotivo').innerText = chamado.motivo;
+    document.getElementById('baixaData').innerText = chamado.dataAbertura;
+    document.getElementById('baixaRetornoCentral').value = '';
+    document.getElementById('modalBaixa').style.display = 'flex';
+};
+
+window.fecharModalBaixa = function() {
+    document.getElementById('modalBaixa').style.display = 'none';
+    chamadoEmBaixa = null;
+};
+
+window.confirmarBaixaChamado = async function() {
+    const retornoCentral = document.getElementById('baixaRetornoCentral').value.trim();
+    if(!retornoCentral) return alert("Descreva o retorno da central antes de dar baixa!");
+
+    const aluno = window.alunos[raEmEdicao];
+    const chamado = aluno.chamados.find(c => c.id === chamadoEmBaixa);
+    if(chamado) {
+        chamado.resolvido = true;
+        chamado.retornoCentral = retornoCentral;
+        chamado.dataBaixa = new Date().toISOString().split('T')[0];
+        if (db) {
+            try { await updateDoc(doc(db, "alunos", raEmEdicao), { chamados: aluno.chamados }); }
+            catch(e) { console.error(e); }
         }
-    }
+        const msg = "Ola " + aluno.nome + "! 🎉\n\nSeu chamado *" + chamado.protocolo + "* sobre \"" + chamado.motivo + "\" foi resolvido pela central!\n\n📋 *Solucao:* " + retornoCentral + "\n\nCaso ainda tenha duvidas, estamos a disposicao.";
+        window.open("https://wa.me/55" + aluno.tel + "?text=" + encodeURIComponent(msg), '_blank');
 
-    window.abrirModalCadastro = function() {
-        raEmEdicao = null;
-        document.getElementById('modalTitle').innerText = "Cadastrar Novo Aluno";
-        document.getElementById('mRA').value = "";
-        document.getElementById('mRA').disabled = false;
-        document.getElementById('mNome').value = "";
-        document.getElementById('mTel').value = "";
-        document.getElementById('mUnidade').value = "";
-        document.getElementById('mCategoria').value = "Extranet";
-        document.getElementById('mStatusEnvio').value = "Pendente";
-        
-        const sem = document.getElementById('semestreSelect').value;
-        const ano = document.getElementById('anoRef').value;
-        let mI = sem==="1"?1:sem==="2"?7:1; 
-        let mF = sem==="1"?6:sem==="2"?12:12;
-        
-        const lista = document.getElementById('listaMensalidades');
-        lista.innerHTML = '';
-        for(let i=mI; i<=mF; i++) {
-            renderizarLinhaMensalidade({mes: i, vencimento: `${ano}-${String(i).padStart(2,'0')}-10`, pago: false}, i-mI);
-        }
-        renderizarListaChamados([]);
-        document.getElementById('modal').style.display = 'flex';
-    }
-
-    window.editarSelecionado = function() {
-        const selecionados = document.querySelectorAll('.chk-aluno:checked');
-        if(selecionados.length !== 1) return alert("Selecione exatamente 1 aluno para editar.");
-        const ra = selecionados[0].getAttribute('data-ra');
-        abrirModalEdicao(ra);
-    }
-
-    window.abrirModalEdicao = function(ra) {
-        raEmEdicao = ra;
-        const aluno = window.alunos[ra];
-        document.getElementById('modalTitle').innerText = "Editando: " + aluno.nome;
-        document.getElementById('mRA').value = aluno.ra;
-        document.getElementById('mRA').disabled = true;
-        document.getElementById('mNome').value = aluno.nome;
-        document.getElementById('mTel').value = aluno.tel;
-        document.getElementById('mUnidade').value = aluno.unidade;
-        document.getElementById('mCategoria').value = aluno.categoria || "Extranet";
-        document.getElementById('mStatusEnvio').value = aluno.controleEnvio || "Pendente";
-        
-        const lista = document.getElementById('listaMensalidades');
-        lista.innerHTML = '';
-        aluno.mensalidades.forEach((m, idx) => {
-            renderizarLinhaMensalidade(m, idx);
-        });
-        
-        // Renderizar chamados existentes
-        renderizarListaChamados(aluno.chamados || []);
-        
-        document.getElementById('modal').style.display = 'flex';
-    }
-
-    function renderizarLinhaMensalidade(m, idx) {
-        const div = document.createElement('div');
-        div.style = 'display:flex; justify-content:space-between; align-items:center; padding:5px; border-bottom:1px solid #f1f5f9; gap:10px;';
-        div.innerHTML = `
-            <span style="font-size:12px; font-weight:600; width:60px;">Mês ${m.mes}</span>
-            <input type="date" value="${m.vencimento}" class="form-control m-venc" data-mes="${m.mes}" style="width:140px;">
-            <label style="font-size:9px; display:flex; align-items:center; gap:4px;">
-                <input type="checkbox" class="m-pago" ${m.pago?'checked':''}> Pago
-            </label>
-        `;
-        document.getElementById('listaMensalidades').appendChild(div);
-    }
-
-    // FUNÇÕES DE CHAMADOS
-    window.abrirModalNovoChamado = function() {
-        document.getElementById('chamadoMotivo').value = '';
-        document.getElementById('chamadoProtocolo').value = '';
-        document.getElementById('chamadoRetorno').value = '';
-        document.getElementById('modalChamado').style.display = 'flex';
-    }
-
-    window.fecharModalChamado = function() {
-        document.getElementById('modalChamado').style.display = 'none';
-    }
-
-    window.salvarNovoChamado = async function() {
-        const motivo = document.getElementById('chamadoMotivo').value.trim();
-        const protocolo = document.getElementById('chamadoProtocolo').value.trim();
-        const retorno = document.getElementById('chamadoRetorno').value;
-        
-        if(!motivo || !protocolo || !retorno) {
-            return alert("Preencha todos os campos obrigatórios!");
-        }
-        
-        const novoChamado = {
-            id: Date.now().toString(),
-            motivo: motivo,
-            protocolo: protocolo,
-            dataRetorno: retorno,
-            dataAbertura: new Date().toISOString().split('T')[0],
-            resolvido: false,
-            retornoCentral: null,
-            dataBaixa: null
-        };
-        
-        const aluno = window.alunos[raEmEdicao];
-        if(!aluno.chamados) aluno.chamados = [];
-        aluno.chamados.push(novoChamado);
-        
-        // Salvar no Firebase
-        await updateDoc(doc(db, "alunos", raEmEdicao), { chamados: aluno.chamados });
-        
-        fecharModalChamado();
-        renderizarListaChamados(aluno.chamados);
-        renderizar(); // Atualiza o ícone na tabela
-        renderizarPainel(); // Atualiza contador no dashboard
-    }
-
-    // Abrir modal para dar baixa
-    window.abrirModalBaixa = function(chamadoId) {
-        const aluno = window.alunos[raEmEdicao];
-        const chamado = aluno.chamados.find(c => c.id === chamadoId);
-        if(!chamado) return;
-        
-        chamadoEmBaixa = chamadoId;
-        document.getElementById('baixaProtocolo').innerText = chamado.protocolo;
-        document.getElementById('baixaMotivo').innerText = chamado.motivo;
-        document.getElementById('baixaData').innerText = chamado.dataAbertura;
-        document.getElementById('baixaRetornoCentral').value = '';
-        document.getElementById('modalBaixa').style.display = 'flex';
-    }
-
-    window.fecharModalBaixa = function() {
-        document.getElementById('modalBaixa').style.display = 'none';
-        chamadoEmBaixa = null;
-    }
-
-    window.confirmarBaixaChamado = async function() {
-        const retornoCentral = document.getElementById('baixaRetornoCentral').value.trim();
-        if(!retornoCentral) {
-            return alert("Descreva o retorno da central antes de dar baixa!");
-        }
-        
-        const aluno = window.alunos[raEmEdicao];
-        const chamado = aluno.chamados.find(c => c.id === chamadoEmBaixa);
-        if(chamado) {
-            chamado.resolvido = true;
-            chamado.retornoCentral = retornoCentral;
-            chamado.dataBaixa = new Date().toISOString().split('T')[0];
-            
-            await updateDoc(doc(db, "alunos", raEmEdicao), { chamados: aluno.chamados });
-            
-            // Enviar WhatsApp para o aluno informando a resolução
-            const msg = `Olá ${aluno.nome}! 🎉\n\nSeu chamado *${chamado.protocolo}* sobre "${chamado.motivo}" foi resolvido pela central!\n\n📋 *Solução:* ${retornoCentral}\n\nCaso ainda tenha dúvidas, estamos à disposição.`;
-            window.open(`https://wa.me/55${aluno.tel}?text=${encodeURIComponent(msg)}`, '_blank');
-            
-            fecharModalBaixa();
-            renderizarListaChamados(aluno.chamados);
-            renderizar();
-            renderizarPainel();
-        }
-    }
-
-    window.excluirChamado = async function(chamadoId) {
-        if(!confirm("Deseja excluir este chamado permanentemente?")) return;
-        const aluno = window.alunos[raEmEdicao];
-        aluno.chamados = aluno.chamados.filter(c => c.id !== chamadoId);
-        await updateDoc(doc(db, "alunos", raEmEdicao), { chamados: aluno.chamados });
+        fecharModalBaixa();
         renderizarListaChamados(aluno.chamados);
         renderizar();
         renderizarPainel();
     }
+};
 
-    function renderizarListaChamados(chamados) {
-        const container = document.getElementById('listaChamados');
-        if(!chamados || chamados.length === 0) {
-            container.innerHTML = '<p style="color:#94a3b8; font-size:12px; text-align:center; padding:20px;">Nenhum chamado registrado</p>';
-            return;
-        }
-        
-        // Ordenar: não resolvidos primeiro, depois por data de retorno
-        const hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        
-        const chamadosOrdenados = [...chamados].sort((a, b) => {
-            if(a.resolvido !== b.resolvido) return a.resolvido ? 1 : -1;
-            return new Date(a.dataRetorno) - new Date(b.dataRetorno);
+window.excluirChamado = async function(chamadoId) {
+    if(!confirm("Deseja excluir este chamado permanentemente?")) return;
+    const aluno = window.alunos[raEmEdicao];
+    aluno.chamados = aluno.chamados.filter(c => c.id !== chamadoId);
+    if (db) {
+        try { await updateDoc(doc(db, "alunos", raEmEdicao), { chamados: aluno.chamados }); }
+        catch(e) { console.error(e); }
+    }
+    renderizarListaChamados(aluno.chamados);
+    renderizar();
+    renderizarPainel();
+};
+
+window.renderizarListaChamados = function(chamados) {
+    const container = document.getElementById('listaChamados');
+    if(!chamados || chamados.length === 0) {
+        container.innerHTML = '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:20px">Nenhum chamado registrado</p>';
+        return;
+    }
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const chamadosOrdenados = [...chamados].sort((a, b) => {
+        if(a.resolvido !== b.resolvido) return a.resolvido ? 1 : -1;
+        return new Date(a.dataRetorno) - new Date(b.dataRetorno);
+    });
+
+    container.innerHTML = chamadosOrdenados.map(c => {
+        const dataRetorno = new Date(c.dataRetorno + 'T00:00:00');
+        const diasRestantes = Math.ceil((dataRetorno - hoje) / (1000 * 60 * 60 * 24));
+        const atrasado = diasRestantes < 0 && !c.resolvido;
+        let statusClass = 'ok', statusText = 'Retorno em ' + diasRestantes + ' dias', protocoloClass = '', itemClass = '';
+        if(c.resolvido) { statusText = '✅ Resolvido em ' + c.dataBaixa; statusClass = 'ok'; }
+        else if(atrasado) { statusText = '⚠️ Atrasado ' + Math.abs(diasRestantes) + ' dias'; statusClass = 'atrasado'; protocoloClass = 'atrasado'; itemClass = 'atrasado'; }
+        else if(diasRestantes === 0) { statusText = '📞 Retorno Hoje!'; statusClass = ''; }
+
+        return '<div class="chamado-item ' + (c.resolvido ? 'resolvido ' : '') + itemClass + '"><div class="chamado-header"><div><span class="chamado-protocolo ' + protocoloClass + '">#' + c.protocolo + '</span><span class="chamado-status ' + (c.resolvido ? 'resolvido' : 'pendente') + '">' + (c.resolvido ? 'Resolvido' : 'Aguardando') + '</span></div><span class="chamado-data">Aberto: ' + c.dataAbertura + '</span></div><div class="chamado-motivo">' + c.motivo + '</div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span class="chamado-retorno ' + statusClass + '">' + statusText + '</span><div style="display:flex;gap:5px">' + (!c.resolvido ? '<button onclick="abrirModalBaixa(\'' + c.id + '\')" class="btn btn-success btn-chamado-small">✅ Dar Baixa</button>' : '') + '<button onclick="excluirChamado(\'' + c.id + '\')" class="btn btn-danger btn-chamado-small">🗑️</button></div></div>' + (c.resolvido && c.retornoCentral ? '<div class="chamado-retorno-central"><strong>Retorno da Central:</strong> ' + c.retornoCentral + '</div>' : '') + '</div>';
+    }).join('');
+};
+
+window.temChamadosPendentes = function(aluno) {
+    if(!aluno.chamados || aluno.chamados.length === 0) return false;
+    return aluno.chamados.some(c => !c.resolvido);
+};
+
+window.temChamadosAtrasados = function(aluno) {
+    if(!aluno.chamados || aluno.chamados.length === 0) return false;
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    return aluno.chamados.some(c => {
+        if(c.resolvido) return false;
+        const dataRetorno = new Date(c.dataRetorno + 'T00:00:00');
+        return dataRetorno < hoje;
+    });
+};
+
+window.contarChamadosPendentes = function(aluno) {
+    if(!aluno.chamados || aluno.chamados.length === 0) return 0;
+    return aluno.chamados.filter(c => !c.resolvido).length;
+};
+
+// ========== SALVAR ALUNO ==========
+window.salvarAluno = async function() {
+    const ra = document.getElementById('mRA').value.replace(/\D/g, '');
+    if(!ra) return alert("RA e obrigatorio");
+
+    const mensalidades = [];
+    document.querySelectorAll('#listaMensalidades > div').forEach(div => {
+        mensalidades.push({
+            mes: parseInt(div.querySelector('.m-venc').getAttribute('data-mes')),
+            vencimento: div.querySelector('.m-venc').value,
+            pago: div.querySelector('.m-pago').checked,
+            ano: document.getElementById('anoRef').value
         });
-        
-        container.innerHTML = chamadosOrdenados.map(c => {
-            const dataRetorno = new Date(c.dataRetorno + 'T00:00:00');
-            const diasRestantes = Math.ceil((dataRetorno - hoje) / (1000 * 60 * 60 * 24));
-            const atrasado = diasRestantes < 0 && !c.resolvido;
-            
-            let statusClass = 'ok';
-            let statusText = `Retorno em ${diasRestantes} dias`;
-            let protocoloClass = '';
-            let itemClass = '';
-            
-            if(c.resolvido) {
-                statusText = '✅ Resolvido em ' + c.dataBaixa;
-                statusClass = 'ok';
-            } else if(atrasado) {
-                statusText = `⚠️ Atrasado ${Math.abs(diasRestantes)} dias`;
-                statusClass = 'atrasado';
-                protocoloClass = 'atrasado';
-                itemClass = 'atrasado';
-            } else if(diasRestantes === 0) {
-                statusText = '📞 Retorno Hoje!';
-                statusClass = '';
-            }
-            
-            return `
-                <div class="chamado-item ${c.resolvido ? 'resolvido' : ''} ${itemClass}">
-                    <div class="chamado-header">
-                        <div>
-                            <span class="chamado-protocolo ${protocoloClass}">#${c.protocolo}</span>
-                            <span class="chamado-status ${c.resolvido ? 'resolvido' : 'pendente'}">${c.resolvido ? 'Resolvido' : 'Aguardando'}</span>
-                        </div>
-                        <span class="chamado-data">Aberto: ${c.dataAbertura}</span>
-                    </div>
-                    <div class="chamado-motivo">${c.motivo}</div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span class="chamado-retorno ${statusClass}">${statusText}</span>
-                        <div style="display:flex; gap:5px;">
-                            ${!c.resolvido ? `<button onclick="abrirModalBaixa('${c.id}')" class="btn btn-success btn-chamado-small">✅ Dar Baixa</button>` : ''}
-                            <button onclick="excluirChamado('${c.id}')" class="btn btn-danger btn-chamado-small">🗑️</button>
-                        </div>
-                    </div>
-                    ${c.resolvido && c.retornoCentral ? `
-                        <div class="chamado-retorno-central">
-                            <strong>Retorno da Central:</strong> ${c.retornoCentral}
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        }).join('');
-    }
+    });
 
-    // Verificar se há chamados pendentes (não resolvidos)
-    function temChamadosPendentes(aluno) {
-        if(!aluno.chamados || aluno.chamados.length === 0) return false;
-        return aluno.chamados.some(c => !c.resolvido);
-    }
+    const chamadosExistentes = window.alunos[ra]?.chamados || [];
 
-    // Verificar se há chamados atrasados
-    function temChamadosAtrasados(aluno) {
-        if(!aluno.chamados || aluno.chamados.length === 0) return false;
-        const hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        return aluno.chamados.some(c => {
-            if(c.resolvido) return false;
-            const dataRetorno = new Date(c.dataRetorno + 'T00:00:00');
-            return dataRetorno < hoje;
-        });
-    }
+    const dados = {
+        ra: ra,
+        nome: document.getElementById('mNome').value.trim(),
+        tel: document.getElementById('mTel').value.replace(/\D/g, ''),
+        unidade: document.getElementById('mUnidade').value.trim(),
+        categoria: document.getElementById('mCategoria').value,
+        controleEnvio: document.getElementById('mStatusEnvio').value,
+        marcado: window.alunos[ra]?.marcado || false,
+        docPendente: window.alunos[ra]?.docPendente || false,
+        chamados: chamadosExistentes,
+        mensalidades: mensalidades
+    };
+    try {
+        if (db) await setDoc(doc(db, "alunos", ra), dados);
+        window.alunos[ra] = dados;
+        fecharModal();
+        renderizar();
+        renderizarPainel();
+        atualizarOpcoesFiltros();
+        alert("Dados salvos com sucesso!");
+    } catch (e) { alert("Erro ao salvar: " + e.message); }
+};
 
-    // Contar chamados pendentes
-    function contarChamadosPendentes(aluno) {
-        if(!aluno.chamados || aluno.chamados.length === 0) return 0;
-        return aluno.chamados.filter(c => !c.resolvido).length;
-    }
+// ========== RENDERIZAR TABELA ==========
+window.renderizar = function() {
+    const t = document.getElementById('corpoTabela');
+    const b = document.getElementById('busca').value.toLowerCase();
 
-    window.salvarAluno = async function() {
-        const ra = document.getElementById('mRA').value.replace(/\D/g, '');
-        if(!ra) return alert("RA é obrigatório");
-        const mensalidades = [];
-        document.querySelectorAll('#listaMensalidades > div').forEach(div => {
-            mensalidades.push({
-                mes: parseInt(div.querySelector('.m-venc').getAttribute('data-mes')),
-                vencimento: div.querySelector('.m-venc').value,
-                pago: div.querySelector('.m-pago').checked,
-                ano: document.getElementById('anoRef').value
-            });
-        });
-        
-        // Preservar chamados existentes
-        const chamadosExistentes = window.alunos[ra]?.chamados || [];
-        
-        const dados = {
-            ra: ra,
-            nome: document.getElementById('mNome').value.trim(),
-            tel: document.getElementById('mTel').value.replace(/\D/g, ''),
-            unidade: document.getElementById('mUnidade').value.trim(),
-            categoria: document.getElementById('mCategoria').value,
-            controleEnvio: document.getElementById('mStatusEnvio').value,
-            marcado: window.alunos[ra]?.marcado || false,
-            docPendente: window.alunos[ra]?.docPendente || false,
-            chamados: chamadosExistentes, // Preservar chamados
-            mensalidades: mensalidades
-        };
-        try {
-            await setDoc(doc(db, "alunos", ra), dados);
-            window.alunos[ra] = dados;
-            fecharModal();
-            renderizar();
-            renderizarPainel();
-            atualizarOpcoesFiltros();
-            alert("Dados salvos com sucesso!");
-        } catch (e) { alert("Erro ao salvar: " + e.message); }
-    }
+    const fUni = Array.from(document.getElementById('filtroUnidade').selectedOptions).map(opt => opt.value);
+    const fStatus = Array.from(document.getElementById('filtroStatusEnvio').selectedOptions).map(opt => opt.value);
+    const fCat = document.getElementById('filtroCategoria').value;
+    const fMarcado = document.getElementById('filtroMarcado').value;
+    const fChamados = document.getElementById('filtroChamados').value;
 
-    window.renderizar = function() {
-        const t = document.getElementById('corpoTabela');
-        const b = document.getElementById('busca').value.toLowerCase();
-        
-        const fUni = Array.from(document.getElementById('filtroUnidade').selectedOptions).map(opt => opt.value);
-        const fStatus = Array.from(document.getElementById('filtroStatusEnvio').selectedOptions).map(opt => opt.value);
-        
-        const fCat = document.getElementById('filtroCategoria').value;
-        const fMarcado = document.getElementById('filtroMarcado').value;
-        const fChamados = document.getElementById('filtroChamados').value;
-        
-        const hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        
-        const lista = Object.values(window.alunos).filter(a => {
-            const status = a.controleEnvio || 'Pendente';
-            const matchUni = fUni.length === 0 || fUni.includes(a.unidade);
-            const matchStatusEnvio = fStatus.length === 0 || fStatus.includes(status);
-            const matchCat = (!fCat || a.categoria === fCat);
-            const matchBusca = (a.nome?.toLowerCase().includes(b) || a.ra.includes(b));
-            const matchMarcado = (fMarcado === 'todos' || (fMarcado === 'marcados' && a.marcado));
-            
-            // Filtro de chamados
-            let matchChamados = true;
-            if(fChamados === 'com_chamados') {
-                matchChamados = a.chamados && a.chamados.length > 0;
-            } else if(fChamados === 'chamados_pendentes') {
-                matchChamados = temChamadosPendentes(a);
-            } else if(fChamados === 'chamados_atrasados') {
-                matchChamados = temChamadosAtrasados(a);
-            }
-            
-            return matchUni && matchStatusEnvio && matchCat && matchBusca && matchMarcado && matchChamados;
-        }).sort((x,y) => x.nome.localeCompare(y.nome));
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
 
-        t.innerHTML = '';
-        lista.forEach(a => {
-            const status = a.controleEnvio || 'Pendente';
-            const tr = document.createElement('tr');
-            
-            // Verificar chamados
-            const temChamado = temChamadosPendentes(a);
-            const chamadoAtrasado = temChamadosAtrasados(a);
-            const qtdChamados = contarChamadosPendentes(a);
-            
-            // Definir classe da linha
-            let rowClass = status==='Pago'?'row-pago':status==='Enviado'?'row-enviado':status==='Número Inválido'?'row-invalido':'';
-            if(chamadoAtrasado) rowClass = 'row-chamado-atrasado';
-            tr.className = rowClass;
-            
-            const classeNome = a.docPendente ? 'class="nome-doc-pendente"' : '';
-            
-            // Ícone de chamado
-            let chamadoIconClass = 'chamado-icon';
-            if(chamadoAtrasado) chamadoIconClass += ' chamado-atrasado';
-            else if(temChamado) chamadoIconClass += ' chamado-active';
-            
-            let badgeClass = 'badge-chamados';
-            if(chamadoAtrasado) badgeClass += ' atrasado';
+    const lista = Object.values(window.alunos).filter(a => {
+        const status = a.controleEnvio || 'Pendente';
+        const matchUni = fUni.length === 0 || fUni.includes(a.unidade);
+        const matchStatusEnvio = fStatus.length === 0 || fStatus.includes(status);
+        const matchCat = (!fCat || a.categoria === fCat);
+        const matchBusca = (a.nome?.toLowerCase().includes(b) || a.ra?.includes(b));
+        const matchMarcado = (fMarcado === 'todos' || (fMarcado === 'marcados' && a.marcado));
 
-            tr.innerHTML = `
-                <td><input type="checkbox" class="chk-aluno" data-ra="${a.ra}"></td>
-                <td><span class="star-icon ${a.marcado ? 'star-active' : ''}" onclick="toggleMarcador('${a.ra}')">★</span></td>
-                <td><span class="doc-icon ${a.docPendente ? 'doc-active' : ''}" onclick="toggleDoc('${a.ra}')">📄</span></td>
-                <td style="position:relative;">
-                    <span class="${chamadoIconClass}" onclick="abrirModalEdicao('${a.ra}')" title="${temChamado ? qtdChamados + ' chamado(s) pendente(s)' : 'Sem chamados'}">🎫</span>
-                    ${temChamado ? `<span class="${badgeClass}">${qtdChamados}</span>` : ''}
-                </td>
-                <td>${a.ra}</td>
-                <td onclick="abrirModalEdicao('${a.ra}')" style="cursor:pointer; color:var(--accent); font-weight:700;"><span ${classeNome}>${a.nome}</span></td>
-                <td><div style="display:flex; gap:4px; flex-wrap:wrap; max-width:200px;">${a.mensalidades.map((m,i)=>`<div class="mes-box ${m.pago?'mes-pago':'mes-pendente'}" onclick="togglePagamento('${a.ra}',${i})">${m.mes}</div>`).join('')}</div></td>
-                <td>
-                    <select class="form-control" onchange="alterarStatus('${a.ra}', this.value)" style="font-size:10px; height:28px; padding:2px;">
-                        <option value="Pendente" ${status==='Pendente'?'selected':''}>⏳ Pendente</option>
-                        <option value="Enviado" ${status==='Enviado'?'selected':''}>📤 Enviado</option>
-                        <option value="Pago" ${status==='Pago'?'selected':''}>✅ Pago</option>
-                        <option value="Número Inválido" ${status==='Número Inválido'?'selected':''}>🚫 Inválido</option>
-                    </select>
-                </td>
-                <td><a class="btn btn-zap" href="https://wa.me/55${a.tel}?text=${encodeURIComponent(gerarTextoZap(a))}" target="_blank" onclick="alterarStatus('${a.ra}', 'Enviado')">📱 Enviar</a></td>
-                <td><a class="btn" style="background:#8b5cf6; color:white;" href="https://wa.me/55${a.tel}?text=${encodeURIComponent(gerarTexto9Off(a))}" target="_blank">💎 Lembrete</a></td>`;
-            t.appendChild(tr);
-        });
-        document.getElementById('contador').innerText = `${lista.length} Clientes`;
-    }
+        let matchChamados = true;
+        if(fChamados === 'com_chamados') matchChamados = a.chamados && a.chamados.length > 0;
+        else if(fChamados === 'chamados_pendentes') matchChamados = temChamadosPendentes(a);
+        else if(fChamados === 'chamados_atrasados') matchChamados = temChamadosAtrasados(a);
 
-    window.abrirModalLote = function() {
-        const selecionados = document.querySelectorAll('.chk-aluno:checked');
-        if(selecionados.length === 0) return alert("Selecione os alunos na tabela primeiro.");
-        document.getElementById('modalLote').style.display = 'flex';
-    }
+        return matchUni && matchStatusEnvio && matchCat && matchBusca && matchMarcado && matchChamados;
+    }).sort((x,y) => x.nome.localeCompare(y.nome));
 
-    window.fecharModalLote = () => document.getElementById('modalLote').style.display = 'none';
+    t.innerHTML = '';
+    lista.forEach(a => {
+        const status = a.controleEnvio || 'Pendente';
+        const tr = document.createElement('tr');
+        const temChamado = temChamadosPendentes(a);
+        const chamadoAtrasado = temChamadosAtrasados(a);
+        const qtdChamados = contarChamadosPendentes(a);
 
-    window.salvarLoteVencimento = async function() {
-        const mesAlvo = parseInt(document.getElementById('loteMes').value);
-        const novaData = document.getElementById('loteData').value;
-        const selecionados = document.querySelectorAll('.chk-aluno:checked');
-        if(!novaData) return alert("Escolha uma data válida.");
-        if(!confirm(`Deseja alterar o vencimento do mês ${mesAlvo} para ${novaData} em ${selecionados.length} alunos?`)) return;
+        let rowClass = status === 'Pago' ? 'row-pago' : status === 'Enviado' ? 'row-enviado' : status === 'Numero Invalido' ? 'row-invalido' : '';
+        if(chamadoAtrasado) rowClass = 'row-chamado-atrasado';
+        tr.className = rowClass;
+
+        const classeNome = a.docPendente ? 'class="nome-doc-pendente"' : '';
+        let chamadoIconClass = 'chamado-icon';
+        if(chamadoAtrasado) chamadoIconClass += ' chamado-atrasado';
+        else if(temChamado) chamadoIconClass += ' chamado-active';
+        let badgeClass = 'badge-chamados';
+        if(chamadoAtrasado) badgeClass += ' atrasado';
+
+        const mesesHtml = (a.mensalidades || []).map((m,i) => '<div class="mes-box ' + (m.pago ? 'mes-pago' : 'mes-pendente') + '" onclick="togglePagamento(\'' + a.ra + '\',' + i + ')">' + m.mes + '</div>').join('');
+
+        tr.innerHTML = '<td><input type="checkbox" class="chk-aluno" data-ra="' + a.ra + '"></td>' +
+            '<td><span class="star-icon ' + (a.marcado ? 'star-active' : '') + '" onclick="toggleMarcador(\'' + a.ra + '\')">★</span></td>' +
+            '<td><span class="doc-icon ' + (a.docPendente ? 'doc-active' : '') + '" onclick="toggleDoc(\'' + a.ra + '\')">📄</span></td>' +
+            '<td style="position:relative"><span class="' + chamadoIconClass + '" onclick="abrirModalEdicao(\'' + a.ra + '\')" title="' + (temChamado ? qtdChamados + ' chamado(s) pendente(s)' : 'Sem chamados') + '">🎫</span>' + (temChamado ? '<span class="' + badgeClass + '">' + qtdChamados + '</span>' : '') + '</td>' +
+            '<td>' + a.ra + '</td>' +
+            '<td onclick="abrirModalEdicao(\'' + a.ra + '\')" style="cursor:pointer;color:var(--accent);font-weight:700"><span ' + classeNome + '>' + a.nome + '</span></td>' +
+            '<td><div style="display:flex;gap:4px;flex-wrap:wrap;max-width:200px">' + mesesHtml + '</div></td>' +
+            '<td><select class="form-control" onchange="alterarStatus(\'' + a.ra + '\',this.value)" style="font-size:10px;height:28px;padding:2px">' +
+                '<option value="Pendente" ' + (status === 'Pendente' ? 'selected' : '') + '>⏳ Pendente</option>' +
+                '<option value="Enviado" ' + (status === 'Enviado' ? 'selected' : '') + '>📤 Enviado</option>' +
+                '<option value="Pago" ' + (status === 'Pago' ? 'selected' : '') + '>✅ Pago</option>' +
+                '<option value="Numero Invalido" ' + (status === 'Numero Invalido' ? 'selected' : '') + '>🚫 Invalido</option>' +
+            '</select></td>' +
+            '<td><a class="btn btn-zap" href="https://wa.me/55' + a.tel + '?text=' + encodeURIComponent(gerarTextoZap(a)) + '" target="_blank" onclick="alterarStatus(\'' + a.ra + '\',\'Enviado\')">📱 Enviar</a></td>' +
+            '<td><a class="btn" style="background:#8b5cf6;color:white" href="https://wa.me/55' + a.tel + '?text=' + encodeURIComponent(gerarTexto9Off(a)) + '" target="_blank">💎 Lembrete</a></td>';
+        t.appendChild(tr);
+    });
+    document.getElementById('contador').innerText = lista.length + ' Clientes';
+};
+
+// ========== VENCIMENTO LOTE ==========
+window.abrirModalLote = function() {
+    const selecionados = document.querySelectorAll('.chk-aluno:checked');
+    if(selecionados.length === 0) return alert("Selecione os alunos na tabela primeiro.");
+    document.getElementById('modalLote').style.display = 'flex';
+};
+
+window.fecharModalLote = function() { document.getElementById('modalLote').style.display = 'none'; };
+
+window.salvarLoteVencimento = async function() {
+    const mesAlvo = parseInt(document.getElementById('loteMes').value);
+    const novaData = document.getElementById('loteData').value;
+    const selecionados = document.querySelectorAll('.chk-aluno:checked');
+    if(!novaData) return alert("Escolha uma data valida.");
+    if(!confirm('Deseja alterar o vencimento do mes ' + mesAlvo + ' para ' + novaData + ' em ' + selecionados.length + ' alunos?')) return;
+    if (db) {
         const batch = writeBatch(db);
         selecionados.forEach(chk => {
             const ra = chk.getAttribute('data-ra');
@@ -781,228 +749,403 @@
                 batch.update(doc(db, "alunos", ra), { mensalidades: aluno.mensalidades });
             }
         });
-        await batch.commit();
-        alert("Vencimentos atualizados!");
-        fecharModalLote();
-        renderizar();
-    }
-
-    window.gerarTextoZap = function(aluno) {
-        const hoje = new Date(); hoje.setHours(0,0,0,0);
-        const mensalidadeAtual = aluno.mensalidades?.find(m => !m.pago);
-        if (!mensalidadeAtual) return `Olá, ${aluno.nome}! Sua situação está regularizada. ✅`;
-
-        const [anoV, mesV, diaV] = mensalidadeAtual.vencimento.split('-');
-        const dataVencOriginal = new Date(anoV, mesV - 1, diaV); dataVencOriginal.setHours(0,0,0,0);
-        const mesExtenso = nomesMesesLongos[mensalidadeAtual.mes];
-        
-        const prazoConfigurado = document.getElementById('prazoCampanha').value; 
-        const [diaP, mesP] = prazoConfigurado.split('/');
-        const dataLimiteDesconto = new Date(document.getElementById('anoRef').value, parseInt(mesP) - 1, parseInt(diaP));
-        dataLimiteDesconto.setHours(0,0,0,0);
-
-        const mesesEmAtraso = aluno.mensalidades
-            .filter(m => !m.pago && m.mes < mensalidadeAtual.mes)
-            .map(m => nomesMesesLongos[m.mes]);
-
-        let texto = "";
-
-        if (mensalidadeAtual.mes === 1 || mensalidadeAtual.mes === 7) {
-            texto = `Olá, ${aluno.nome}! Tudo bem? 🎓\n\nUm novo semestre está batendo à porta e com ele novas oportunidades de aprendizado e crescimento! Seu sonho da graduação é o nosso combustível e queremos ver você brilhando em mais essa etapa. 🌟\n\nPara garantir que você não perca nenhum momento dessa evolução e siga firme na sua jornada acadêmica, estamos enviando o seu boleto de *${mesExtenso}* (referente à sua renovação).`;
-            if (hoje <= dataLimiteDesconto) {
-                texto += `\n\n💰 *Lembre-se do seu benefício:*\nEfetuando o pagamento até o dia *${prazoConfigurado}*, você garante seu *desconto de pontualidade de 9% OFF*. Aproveite essa oportunidade para investir no seu futuro com economia!`;
-            }
-            texto += `\n\nO pagamento deste boleto é o que oficializa sua jornada neste novo semestre e permite que você continue acessando todos os conteúdos e atividades sem interrupções.`;
-            if (hoje > dataLimiteDesconto) texto += ` Lembre-se que o vencimento original é dia *${diaV}/${mesV}*.`;
-        } else {
-            if (hoje > dataLimiteDesconto && hoje <= dataVencOriginal) {
-                texto = `Olá, ${aluno.nome}! 🎓\n\nPassando para avisar que o prazo para o seu *desconto de pontualidade* de ${mesExtenso} encerrou no dia *${prazoConfigurado}*.\n\nMas não se preocupe: seu boleto continua disponível e o vencimento original é apenas em *${diaV}/${mesV}*. Você ainda pode efetuar o pagamento pelo valor integral até essa data para evitar juros após o vencimento.`;
-            } else if (hoje <= dataLimiteDesconto) {
-                texto = `Olá, ${aluno.nome}! Tudo bem? 🎓\n\nInformamos que o seu boleto de *${mesExtenso}* já está disponível.\n\n💡 *Prazos:*\n• Até *${prazoConfigurado}*: Pagamento com desconto (9% OFF).\n• Até *${diaV}/${mesV}*: Vencimento original (valor integral).`;
-            } else {
-                const diff = Math.ceil(Math.abs(hoje - dataVencOriginal) / (1000 * 60 * 60 * 24));
-                texto = `Olá, ${aluno.nome}! Sua mensalidade de *${mesExtenso}* está pendente há ${diff} dias. Por favor, regularize no portal para evitar encargos adicionais.`;
-            }
-        }
-
-        if (mesesEmAtraso.length > 0) {
-            texto += `\n\n---\n⚠️ *Ponto de Atenção:*\nNotamos que as mensalidades de *${mesesEmAtraso.join(' e ')}* ainda constam em aberto. É importante regularizá-las para evitar que o saldo devedor se acumule e possa dificultar sua renovação de matrícula ao final do semestre.`;
-        }
-
-        texto += `\n\nO boleto segue em anexo! 📄`;
-        return texto;
-    }
-
-    window.gerarTexto9Off = function(aluno) {
-        const hoje = new Date(); hoje.setHours(0,0,0,0);
-        const prazoConfigurado = document.getElementById('prazoCampanha').value; 
-        const [diaP, mesP] = prazoConfigurado.split('/');
-        const dataLimiteDesconto = new Date(document.getElementById('anoRef').value, parseInt(mesP) - 1, parseInt(diaP));
-        dataLimiteDesconto.setHours(0,0,0,0);
-
-        const mensalidadeAtual = aluno.mensalidades?.find(m => !m.pago);
-        const mesExtenso = mensalidadeAtual ? nomesMesesLongos[mensalidadeAtual.mes] : "";
-
-        if (hoje > dataLimiteDesconto) {
-            return `Olá, ${aluno.nome}! 🎓\n\nPassando para lembrar que o prazo do desconto de pontualidade para a mensalidade de ${mesExtenso} já expirou, mas você ainda pode realizar o pagamento pelo valor original até o vencimento. \n\nNão deixe acumular! Qualquer dúvida, estamos aqui. 🚀`;
-        }
-
-        if (mensalidadeAtual && (mensalidadeAtual.mes === 1 || mensalidadeAtual.mes === 7)) {
-            return `Olá, ${aluno.nome}! 🌟\n\nNão esqueça: o pagamento do boleto de *${mesExtenso}* é fundamental para a sua renovação e continuidade dos estudos neste novo semestre!\n\n💰 *Benefício de Pontualidade:*\nPagando até o dia *${prazoConfigurado}*, você garante seus *9% de DESCONTO*. \n\nGaranta sua vaga e sua economia! 🎓🚀`;
-        } else {
-            return `Olá ${aluno.nome}, 🌟\n\nIdentificamos que você ainda não aproveitou o seu BENEFÍCIO de Pontualidade de ${mesExtenso}! \n\nEfetue o pagamento até o dia *${prazoConfigurado}* e garanta automaticamente *9% de DESCONTO* no valor da parcela. \n\nAproveite para economizar! 💰`;
-        }
-    }
-
-    window.gerarTextoDoc = function(aluno) {
-        const u = (aluno.unidade || "").toUpperCase();
-        let contato = "(81) 99988-9803";
-        let link = "https://wa.me/5581999889803";
-        if (u.includes("RECIFE")) { contato = "(81) 98261-7644"; link = "https://wa.me/5581982617644"; }
-        else if (u.includes("CARPINA")) { contato = "(81) 99315-7905"; link = "https://wa.me/5581993157905"; }
-        return `Olá ${aluno.nome}! 🎓\n\nIdentificamos uma pendência em sua *documentação acadêmica*.\n\nEssa pendência precisa ser regularizada o quanto antes, pois ela impede a efetivação da sua rematrícula e o seu avanço para o próximo semestre.\n\nPor favor, entre em contato com a secretaria da unidade ${aluno.unidade} para regularizar sua situação:\n\n👉 *Falar com a Secretaria agora:* ${link}\n\nEstamos à disposição para ajudar!`;
-    }
-
-    window.renderizarPainel = function() {
-        const fUniSelect = Array.from(document.getElementById('filtroUnidade').selectedOptions).map(opt => opt.value);
-        const fCat = document.getElementById('filtroCategoria').value;
-        const mesRef = parseInt(document.getElementById('mesRefDash').value);
-        const hoje = new Date(); hoje.setHours(0,0,0,0);
-        const lista = Object.values(window.alunos).filter(a => (fUniSelect.length === 0 || fUniSelect.includes(a.unidade)) && (!fCat || a.categoria === fCat));
-        let stats = { pagNoMes: 0, emAtraso: 0, env: 0, chamados: 0, chamadosAtrasados: 0 };
-        lista.forEach(a => {
-            const s = a.controleEnvio || 'Pendente';
-            if(s === 'Enviado') stats.env++;
-            const mRef = a.mensalidades.find(m => m.mes === mesRef);
-            if(mRef && mRef.pago) stats.pagNoMes++;
-            const temAtraso = a.mensalidades.some(m => { const dataVenc = new Date(m.vencimento + 'T00:00:00'); return !m.pago && dataVenc < hoje; });
-            if(temAtraso) stats.emAtraso++;
-            // Contar chamados
-            if(a.chamados) {
-                const pendentes = a.chamados.filter(c => !c.resolvido);
-                stats.chamados += pendentes.length;
-                // Contar atrasados
-                pendentes.forEach(c => {
-                    const dataRetorno = new Date(c.dataRetorno + 'T00:00:00');
-                    if(dataRetorno < hoje) stats.chamadosAtrasados++;
-                });
-            }
+        try { await batch.commit(); } catch(e) { console.error(e); }
+    } else {
+        selecionados.forEach(chk => {
+            const ra = chk.getAttribute('data-ra');
+            const aluno = window.alunos[ra];
+            const mIndex = aluno.mensalidades.findIndex(m => m.mes === mesAlvo);
+            if(mIndex !== -1) aluno.mensalidades[mIndex].vencimento = novaData;
         });
-        document.getElementById('d-total').innerText = lista.length;
-        document.getElementById('d-pag-mes').innerText = stats.pagNoMes;
-        document.getElementById('d-atraso').innerText = stats.emAtraso;
-        document.getElementById('d-env').innerText = stats.env;
-        document.getElementById('d-chamados').innerText = stats.chamados;
-        document.getElementById('d-chamados-atrasados').innerText = stats.chamadosAtrasados;
     }
+    alert("Vencimentos atualizados!");
+    fecharModalLote();
+    renderizar();
+};
 
-    window.toggleMarcador = async function(ra) {
-        window.alunos[ra].marcado = !window.alunos[ra].marcado;
-        await updateDoc(doc(db, "alunos", ra), { marcado: window.alunos[ra].marcado });
-        renderizar();
-    }
+// ========== MENSAGENS WHATSAPP ==========
+window.gerarTextoZap = function(aluno) {
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const mensalidadeAtual = aluno.mensalidades?.find(m => !m.pago);
+    if (!mensalidadeAtual) return "Ola, " + aluno.nome + "! Sua situacao esta regularizada. ✅";
 
-    window.toggleDoc = async function(ra) {
-        const aluno = window.alunos[ra];
-        aluno.docPendente = !aluno.docPendente;
-        await updateDoc(doc(db, "alunos", ra), { docPendente: aluno.docPendente });
-        if(aluno.docPendente) {
-            const msg = gerarTextoDoc(aluno);
-            window.open(`https://wa.me/55${aluno.tel}?text=${encodeURIComponent(msg)}`, '_blank');
+    const [anoV, mesV, diaV] = mensalidadeAtual.vencimento.split('-');
+    const dataVencOriginal = new Date(anoV, mesV - 1, diaV); dataVencOriginal.setHours(0,0,0,0);
+    const mesExtenso = nomesMesesLongos[mensalidadeAtual.mes];
+
+    const prazoConfigurado = document.getElementById('prazoCampanha').value; 
+    const [diaP, mesP] = prazoConfigurado.split('/');
+    const dataLimiteDesconto = new Date(document.getElementById('anoRef').value, parseInt(mesP) - 1, parseInt(diaP));
+    dataLimiteDesconto.setHours(0,0,0,0);
+
+    const mesesEmAtraso = aluno.mensalidades
+        .filter(m => !m.pago && m.mes < mensalidadeAtual.mes)
+        .map(m => nomesMesesLongos[m.mes]);
+
+    let texto = "";
+    if (mensalidadeAtual.mes === 1 || mensalidadeAtual.mes === 7) {
+        texto = "Ola, " + aluno.nome + "! Tudo bem? 🎓\n\nUm novo semestre esta batendo a porta e com ele novas oportunidades de aprendizado e crescimento! Seu sonho da graduacao e o nosso combustivel e queremos ver voce brilhando em mais essa etapa. 🌟\n\nPara garantir que voce nao perca nenhum momento dessa evolucao e siga firme na sua jornada academica, estamos enviando o seu boleto de *" + mesExtenso + "* (referente a sua renovacao).";
+        if (hoje <= dataLimiteDesconto) {
+            texto += "\n\n💰 *Lembre-se do seu beneficio:*\nEfetuando o pagamento ate o dia *" + prazoConfigurado + "*, voce garante seu *desconto de pontualidade de 9% OFF*. Aproveite essa oportunidade para investir no seu futuro com economia!";
         }
-        renderizar();
+        texto += "\n\nO pagamento deste boleto e o que oficializa sua jornada neste novo semestre e permite que voce continue acessando todos os conteudos e atividades sem interrupcoes.";
+        if (hoje > dataLimiteDesconto) texto += " Lembre-se que o vencimento original e dia *" + diaV + "/" + mesV + "*.";
+    } else {
+        if (hoje > dataLimiteDesconto && hoje <= dataVencOriginal) {
+            texto = "Ola, " + aluno.nome + "! 🎓\n\nPassando para avisar que o prazo para o seu *desconto de pontualidade* de " + mesExtenso + " encerrou no dia *" + prazoConfigurado + "*.\n\nMas nao se preocupe: seu boleto continua disponivel e o vencimento original e apenas em *" + diaV + "/" + mesV + "*. Voce ainda pode efetuar o pagamento pelo valor integral ate essa data para evitar juros apos o vencimento.";
+        } else if (hoje <= dataLimiteDesconto) {
+            texto = "Ola, " + aluno.nome + "! Tudo bem? 🎓\n\nInformamos que o seu boleto de *" + mesExtenso + "* ja esta disponivel.\n\n💡 *Prazos:*\n• Ate *" + prazoConfigurado + "*: Pagamento com desconto (9% OFF).\n• Ate *" + diaV + "/" + mesV + "*: Vencimento original (valor integral).";
+        } else {
+            const diff = Math.ceil(Math.abs(hoje - dataVencOriginal) / (1000 * 60 * 60 * 24));
+            texto = "Ola, " + aluno.nome + "! Sua mensalidade de *" + mesExtenso + "* esta pendente ha " + diff + " dias. Por favor, regularize no portal para evitar encargos adicionais.";
+        }
     }
-
-    window.togglePagamento = async (ra, idx) => {
-        window.alunos[ra].mensalidades[idx].pago = !window.alunos[ra].mensalidades[idx].pago;
-        await setDoc(doc(db, "alunos", ra), window.alunos[ra]);
-        renderizar();
-        renderizarPainel();
+    if (mesesEmAtraso.length > 0) {
+        texto += "\n\n---\n⚠️ *Ponto de Atencao:*\nNotamos que as mensalidades de *" + mesesEmAtraso.join(' e ') + "* ainda constam em aberto. E importante regulariza-las para evitar que o saldo devedor se acumule e possa dificultar sua renovacao de matricula ao final do semestre.";
     }
+    texto += "\n\nO boleto segue em anexo! 📄";
+    return texto;
+};
 
-    window.alterarStatus = async (ra, val) => {
-        window.alunos[ra].controleEnvio = val;
-        await updateDoc(doc(db, "alunos", ra), { controleEnvio: val });
-        renderizar();
-        renderizarPainel();
+window.gerarTexto9Off = function(aluno) {
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const prazoConfigurado = document.getElementById('prazoCampanha').value; 
+    const [diaP, mesP] = prazoConfigurado.split('/');
+    const dataLimiteDesconto = new Date(document.getElementById('anoRef').value, parseInt(mesP) - 1, parseInt(diaP));
+    dataLimiteDesconto.setHours(0,0,0,0);
+    const mensalidadeAtual = aluno.mensalidades?.find(m => !m.pago);
+    const mesExtenso = mensalidadeAtual ? nomesMesesLongos[mensalidadeAtual.mes] : "";
+
+    if (hoje > dataLimiteDesconto) {
+        return "Ola, " + aluno.nome + "! 🎓\n\nPassando para lembrar que o prazo do desconto de pontualidade para a mensalidade de " + mesExtenso + " ja expirou, mas voce ainda pode realizar o pagamento pelo valor original ate o vencimento. \n\nNao deixe acumular! Qualquer duvida, estamos aqui. 🚀";
     }
+    if (mensalidadeAtual && (mensalidadeAtual.mes === 1 || mensalidadeAtual.mes === 7)) {
+        return "Ola, " + aluno.nome + "! 🌟\n\nNao esqueca: o pagamento do boleto de *" + mesExtenso + "* e fundamental para a sua renovacao e continuidade dos estudos neste novo semestre!\n\n💰 *Beneficio de Pontualidade:*\nPagando ate o dia *" + prazoConfigurado + "*, voce garante seus *9% de DESCONTO*. \n\nGaranta sua vaga e sua economia! 🎓🚀";
+    } else {
+        return "Ola " + aluno.nome + ", 🌟\n\nIdentificamos que voce ainda nao aproveitou o seu BENEFICIO de Pontualidade de " + mesExtenso + "! \n\nEfetue o pagamento ate o dia *" + prazoConfigurado + "* e garanta automaticamente *9% de DESCONTO* no valor da parcela. \n\nAproveite para economizar! 💰";
+    }
+};
 
-    window.excluirSelecionados = async () => {
-        const selecionados = document.querySelectorAll('.chk-aluno:checked');
-        if (selecionados.length === 0) return alert("Selecione ao menos um aluno.");
-        if (!confirm(`Deseja excluir ${selecionados.length} aluno(s)?`)) return;
+window.gerarTextoDoc = function(aluno) {
+    const u = (aluno.unidade || "").toUpperCase();
+    let link = "https://wa.me/5581999889803";
+    if (u.includes("RECIFE")) link = "https://wa.me/5581982617644";
+    else if (u.includes("CARPINA")) link = "https://wa.me/5581993157905";
+    return "Ola " + aluno.nome + "! 🎓\n\nIdentificamos uma pendencia em sua *documentacao academica*.\n\nEssa pendencia precisa ser regularizada o quanto antes, pois ela impede a efetivacao da sua rematricula e o seu avanco para o proximo semestre.\n\nPor favor, entre em contato com a secretaria da unidade " + aluno.unidade + " para regularizar sua situacao:\n\n👉 *Falar com a Secretaria agora:* " + link + "\n\nEstamos a disposicao para ajudar!";
+};
+
+// ========== PAINEL GESTAO ==========
+window.renderizarPainel = function() {
+    const fUniSelect = Array.from(document.getElementById('filtroUnidade').selectedOptions).map(opt => opt.value);
+    const fCat = document.getElementById('filtroCategoria').value;
+    const mesRef = parseInt(document.getElementById('mesRefDash').value);
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const lista = Object.values(window.alunos).filter(a => (fUniSelect.length === 0 || fUniSelect.includes(a.unidade)) && (!fCat || a.categoria === fCat));
+    let stats = { pagNoMes: 0, emAtraso: 0, env: 0, chamados: 0, chamadosAtrasados: 0 };
+    lista.forEach(a => {
+        const s = a.controleEnvio || 'Pendente';
+        if(s === 'Enviado') stats.env++;
+        const mRef = a.mensalidades.find(m => m.mes === mesRef);
+        if(mRef && mRef.pago) stats.pagNoMes++;
+        const temAtraso = a.mensalidades.some(m => { const dataVenc = new Date(m.vencimento + 'T00:00:00'); return !m.pago && dataVenc < hoje; });
+        if(temAtraso) stats.emAtraso++;
+        if(a.chamados) {
+            const pendentes = a.chamados.filter(c => !c.resolvido);
+            stats.chamados += pendentes.length;
+            pendentes.forEach(c => {
+                const dataRetorno = new Date(c.dataRetorno + 'T00:00:00');
+                if(dataRetorno < hoje) stats.chamadosAtrasados++;
+            });
+        }
+    });
+    document.getElementById('d-total').innerText = lista.length;
+    document.getElementById('d-pag-mes').innerText = stats.pagNoMes;
+    document.getElementById('d-atraso').innerText = stats.emAtraso;
+    document.getElementById('d-env').innerText = stats.env;
+    document.getElementById('d-chamados').innerText = stats.chamados;
+    document.getElementById('d-chamados-atrasados').innerText = stats.chamadosAtrasados;
+};
+
+// ========== TOGGLES E ACOES RAPIDAS ==========
+window.toggleMarcador = async function(ra) {
+    window.alunos[ra].marcado = !window.alunos[ra].marcado;
+    if (db) {
+        try { await updateDoc(doc(db, "alunos", ra), { marcado: window.alunos[ra].marcado }); }
+        catch(e) { console.error(e); }
+    }
+    renderizar();
+};
+
+window.toggleDoc = async function(ra) {
+    const aluno = window.alunos[ra];
+    aluno.docPendente = !aluno.docPendente;
+    if (db) {
+        try { await updateDoc(doc(db, "alunos", ra), { docPendente: aluno.docPendente }); }
+        catch(e) { console.error(e); }
+    }
+    if(aluno.docPendente) {
+        const msg = gerarTextoDoc(aluno);
+        window.open("https://wa.me/55" + aluno.tel + "?text=" + encodeURIComponent(msg), '_blank');
+    }
+    renderizar();
+};
+
+window.togglePagamento = async function(ra, idx) {
+    window.alunos[ra].mensalidades[idx].pago = !window.alunos[ra].mensalidades[idx].pago;
+    if (db) {
+        try { await setDoc(doc(db, "alunos", ra), window.alunos[ra]); }
+        catch(e) { console.error(e); }
+    }
+    renderizar();
+    renderizarPainel();
+};
+
+window.alterarStatus = async function(ra, val) {
+    window.alunos[ra].controleEnvio = val;
+    if (db) {
+        try { await updateDoc(doc(db, "alunos", ra), { controleEnvio: val }); }
+        catch(e) { console.error(e); }
+    }
+    renderizar();
+    renderizarPainel();
+};
+
+window.excluirSelecionados = async function() {
+    const selecionados = document.querySelectorAll('.chk-aluno:checked');
+    if (selecionados.length === 0) return alert("Selecione ao menos um aluno.");
+    if (!confirm("Deseja excluir " + selecionados.length + " aluno(s)?")) return;
+    if (db) {
         const batch = writeBatch(db);
         selecionados.forEach(chk => {
             const ra = chk.getAttribute('data-ra');
             batch.delete(doc(db, "alunos", ra));
             delete window.alunos[ra];
         });
-        await batch.commit();
-        renderizar();
-        renderizarPainel();
+        try { await batch.commit(); } catch(e) { console.error(e); }
+    } else {
+        selecionados.forEach(chk => {
+            delete window.alunos[chk.getAttribute('data-ra')];
+        });
     }
+    renderizar();
+    renderizarPainel();
+};
 
-    // MELHORIA SOLICITADA: Reseta status de envio mas mantém meses individuais pagos
-    window.resetarStatusEnvio = async function() {
-        if(!confirm("Deseja resetar o status de TODOS os alunos para Pendente? (As mensalidades pagas individualmente serão mantidas)")) return;
-        
+window.resetarStatusEnvio = async function() {
+    if(!confirm("Deseja resetar o status de TODOS os alunos para Pendente? (As mensalidades pagas individualmente serao mantidas)")) return;
+    const listaAlunos = Object.values(window.alunos);
+    if (listaAlunos.length === 0) return;
+    if (db) {
         const batch = writeBatch(db);
-        const listaAlunos = Object.values(window.alunos);
-
-        if (listaAlunos.length === 0) return;
-
         listaAlunos.forEach(a => {
-            // Define o status de envio para Pendente para todos, inclusive os com status 'Pago'
             batch.update(doc(db, "alunos", a.ra), { controleEnvio: 'Pendente' });
-            // Atualiza o estado local para refletir na tela imediatamente
             a.controleEnvio = 'Pendente';
         });
+        try { await batch.commit(); } catch(e) { console.error(e); }
+    } else {
+        listaAlunos.forEach(a => { a.controleEnvio = 'Pendente'; });
+    }
+    renderizar();
+    renderizarPainel();
+    alert("Todos os status de envio foram resetados para Pendente!");
+};
 
-        try {
-            await batch.commit();
-            renderizar();
-            renderizarPainel();
-            alert("Todos os status de envio foram resetados para Pendente!");
-        } catch (e) {
-            alert("Erro ao resetar status: " + e.message);
+// ========== IMPORTACAO CSV MELHORADA ==========
+window.processarArquivoCSV = function(input) {
+    const file = input.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const conteudo = e.target.result;
+        const linhas = conteudo.split(/\r?\n/).filter(l => l.trim() !== '');
+
+        if(linhas.length === 0) {
+            alert("Arquivo vazio!");
+            input.value = '';
+            return;
         }
+
+        const primeiraLinha = linhas[0];
+        let separador = ';';
+        if(primeiraLinha.includes(',') && !primeiraLinha.includes(';')) separador = ',';
+        else if(primeiraLinha.includes('\t') && !primeiraLinha.includes(';')) separador = '\t';
+
+        document.getElementById('csvSeparador').value = separador === '\t' ? 'TAB' : separador;
+
+        csvDadosPendentes = [];
+        let existentes = 0;
+
+        for(let i = 0; i < linhas.length; i++) {
+            const cols = linhas[i].split(separador).map(c => c.trim());
+            if(cols.length < 2) continue;
+
+            const ra = cols[0].replace(/\D/g, '');
+            if(!ra) continue;
+
+            if(i === 0 && (cols[0].toUpperCase().includes('RA') || cols[0].toUpperCase().includes('CODIGO'))) continue;
+
+            const jaExiste = !!window.alunos[ra];
+            if(jaExiste) existentes++;
+
+            csvDadosPendentes.push({
+                ra: ra,
+                nome: cols[1] || '',
+                tel: (cols[2] || '').replace(/\D/g, ''),
+                unidade: cols[3] || '',
+                categoria: (cols[4] || 'Extranet').toUpperCase(),
+                jaExiste: jaExiste,
+                linhaOriginal: i + 1
+            });
+        }
+
+        document.getElementById('csvTotal').value = csvDadosPendentes.length;
+        document.getElementById('csvExistentes').value = existentes;
+
+        const previewDiv = document.getElementById('csvPreview');
+        let html = '<table><thead><tr><th>#</th><th>RA</th><th>Nome</th><th>WhatsApp</th><th>Unidade</th><th>Categoria</th><th>Status</th></tr></thead><tbody>';
+        csvDadosPendentes.slice(0, 20).forEach((d, i) => {
+            const status = d.jaExiste ? '<span style="color:#dc2626;font-weight:bold">⚠️ Ja existe</span>' : '<span style="color:#16a34a">✅ Novo</span>';
+            html += '<tr><td>' + (i+1) + '</td><td>' + d.ra + '</td><td>' + d.nome + '</td><td>' + d.tel + '</td><td>' + d.unidade + '</td><td>' + d.categoria + '</td><td>' + status + '</td></tr>';
+        });
+        if(csvDadosPendentes.length > 20) {
+            html += '<tr><td colspan="7" style="text-align:center;color:#64748b;font-style:italic">... e mais ' + (csvDadosPendentes.length - 20) + ' registros</td></tr>';
+        }
+        html += '</tbody></table>';
+        previewDiv.innerHTML = html;
+
+        const novos = csvDadosPendentes.filter(d => !d.jaExiste);
+        const btn = document.getElementById('btnConfirmarImport');
+        if(novos.length > 0) {
+            btn.disabled = false;
+            btn.innerText = '💾 Importar ' + novos.length + ' Novo(s)';
+        } else {
+            btn.disabled = true;
+            btn.innerText = '💾 Nenhum registro novo';
+        }
+
+        document.getElementById('modalImport').style.display = 'flex';
+    };
+    reader.readAsText(file, 'UTF-8');
+    input.value = '';
+};
+
+window.confirmarImportacao = async function() {
+    const novos = csvDadosPendentes.filter(d => !d.jaExiste);
+    if(novos.length === 0) return;
+
+    const sem = document.getElementById('semestreSelect').value;
+    const ano = document.getElementById('anoRef').value;
+    let mI = sem === "1" ? 1 : sem === "2" ? 7 : 1;
+    let mF = sem === "1" ? 6 : sem === "2" ? 12 : 12;
+
+    const btn = document.getElementById('btnConfirmarImport');
+    btn.disabled = true;
+    const statusDiv = document.getElementById('csvStatus');
+    const progressBar = document.getElementById('csvProgressBar');
+    const progressFill = document.getElementById('csvProgressFill');
+
+    statusDiv.style.display = 'block';
+    statusDiv.className = 'import-status info';
+    statusDiv.innerText = 'Importando ' + novos.length + ' alunos...';
+    progressBar.style.display = 'block';
+
+    let processados = 0;
+
+    for(const d of novos) {
+        const mensalidades = [];
+        for(let i = mI; i <= mF; i++) {
+            mensalidades.push({
+                mes: i,
+                ano: ano,
+                pago: false,
+                vencimento: ano + '-' + String(i).padStart(2, '0') + '-10'
+            });
+        }
+
+        const obj = {
+            ra: d.ra,
+            nome: d.nome,
+            tel: d.tel,
+            unidade: d.unidade,
+            categoria: d.categoria === 'PTC' ? 'PTC' : 'Extranet',
+            controleEnvio: 'Pendente',
+            mensalidades: mensalidades,
+            marcado: false,
+            docPendente: false,
+            chamados: []
+        };
+
+        if (db) {
+            try { await setDoc(doc(db, "alunos", d.ra), obj); }
+            catch(e) { console.error(e); }
+        }
+        window.alunos[d.ra] = obj;
+
+        processados++;
+        progressFill.style.width = Math.round((processados / novos.length) * 100) + '%';
     }
 
-    window.importarCSV = function(input) { 
-        const r = new FileReader(); r.onload = async (e) => { 
-            const l = e.target.result.split(/\r?\n/); const batch = writeBatch(db); 
-            const sem = document.getElementById('semestreSelect').value; 
-            const ano = document.getElementById('anoRef').value;
-            let mI = sem==="1"?1:sem==="2"?7:1; let mF = sem==="1"?6:sem==="2"?12:12;
-            for (let line of l) { 
-                const c = line.split(';'); if (!c[0] || c[0].toUpperCase().includes("RA")) continue; 
-                const ra = c[0].replace(/\D/g, ''); if (window.alunos[ra]) continue; 
-                const m = []; for(let i=mI; i<=mF; i++) m.push({mes:i, ano:ano, pago:false, vencimento:`${ano}-${String(i).padStart(2,'0')}-10`}); 
-                const obj = { ra, nome: c[1]?.trim(), tel: c[2]?.replace(/\D/g,''), unidade: c[3]?.trim(), categoria: c[4]?.trim() || 'Extranet', controleEnvio: 'Pendente', mensalidades: m, marcado: false, docPendente: false, chamados: [] };
-                batch.set(doc(db, "alunos", ra), obj);
-            } 
-            await batch.commit(); location.reload();
-        }; r.readAsText(input.files[0]); 
-    };
+    statusDiv.className = 'import-status success';
+    statusDiv.innerText = '✅ ' + processados + ' aluno(s) importado(s) com sucesso!';
 
-    window.trocarTela = (id) => { 
-        document.querySelectorAll('.view-container').forEach(v => v.classList.remove('view-active')); 
-        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active')); 
-        document.getElementById(id).classList.add('view-active'); 
-        event.currentTarget.classList.add('active'); 
-    };
+    setTimeout(() => {
+        fecharModalImport();
+        renderizar();
+        renderizarPainel();
+        atualizarOpcoesFiltros();
+    }, 1500);
+};
 
-    window.fecharModal = () => {
-        document.getElementById('modal').style.display = 'none';
-        raEmEdicao = null;
-    };
-    
-    window.toggleTodos = (el) => document.querySelectorAll('.chk-aluno').forEach(chk => chk.checked = el.checked);
-    
-    function atualizarOpcoesFiltros() { 
-        const u = [...new Set(Object.values(window.alunos).map(a => a.unidade))].sort(); 
-        document.getElementById('filtroUnidade').innerHTML = u.map(x => `<option value="${x}">${x}</option>`).join(''); 
-    }
+window.fecharModalImport = function() {
+    document.getElementById('modalImport').style.display = 'none';
+    csvDadosPendentes = [];
+    document.getElementById('csvProgressBar').style.display = 'none';
+    document.getElementById('csvProgressFill').style.width = '0%';
+    document.getElementById('csvStatus').style.display = 'none';
+};
+
+window.baixarModeloCSV = function() {
+    const conteudo = "RA;NOME;WHATSAPP;UNIDADE;CATEGORIA\n" +
+        "123456;Joao Silva Santos;81999998888;Recife;Extranet\n" +
+        "123457;Maria Oliveira Lima;81988887777;Carpina;PTC\n" +
+        "123458;Pedro Henrique Costa;81977776666;Gravata;Extranet\n" +
+        "123459;Ana Beatriz Ferreira;81966665555;Bezerros;PTC\n" +
+        "123460;Lucas Gabriel Souza;81955554444;Amaraji;Extranet";
+
+    const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'modelo_importacao_alunos.csv';
+    link.click();
+};
+
+// ========== PDF ==========
+window.gerarRelatorioPDF = function() {
+    alert("Funcao PDF requer a biblioteca jsPDF. Adicione o script no head para habilitar.");
+};
+
+// ========== UTILITARIOS ==========
+window.trocarTela = function(id) { 
+    document.querySelectorAll('.view-container').forEach(v => v.classList.remove('view-active')); 
+    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active')); 
+    document.getElementById(id).classList.add('view-active'); 
+    event.currentTarget.classList.add('active'); 
+};
+
+window.fecharModal = function() {
+    document.getElementById('modal').style.display = 'none';
+    raEmEdicao = null;
+};
+
+window.toggleTodos = function(el) {
+    document.querySelectorAll('.chk-aluno').forEach(chk => chk.checked = el.checked);
+};
+
+window.atualizarOpcoesFiltros = function() { 
+    const u = [...new Set(Object.values(window.alunos).map(a => a.unidade))].sort(); 
+    document.getElementById('filtroUnidade').innerHTML = u.map(x => '<option value="' + x + '">' + x + '</option>').join(''); 
+};
 </script>
 </body>
 </html>
