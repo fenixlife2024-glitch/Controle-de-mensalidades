@@ -87,6 +87,7 @@ tr.row-chamado-atrasado{background-color:#fef2f2!important}
 .progress-bar-fill{height:100%;background:var(--accent);width:0%;transition:width .3s ease}
 </style>
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 
@@ -122,6 +123,10 @@ tr.row-chamado-atrasado{background-color:#fef2f2!important}
 <button onclick="abrirModalLote()" class="btn btn-warning" style="background:#f59e0b">📅 Venc. Lote</button>
 <button onclick="resetarStatusEnvio()" class="btn btn-warning">🔄 Resetar Status</button>
 <button onclick="excluirSelecionados()" class="btn btn-danger">🗑️ Deletar</button>
+<div id="grupoSincronizar" style="display:none;flex-direction:column;gap:5px;margin-right:10px">
+    <button onclick="sincronizarLocalStorage()" class="btn btn-success" style="font-size:11px;padding:6px 10px">☁️ Enviar Demo → Nuvem</button>
+    <button onclick="mesclarDadosLocais()" class="btn btn-primary" style="font-size:11px;padding:6px 10px">🔀 Mesclar com Nuvem</button>
+</div>
 <span id="contador" style="font-weight:700;color:var(--accent);font-size:11px;background:#e0f2fe;padding:5px 10px;border-radius:20px">Sincronizando...</span>
 </div>
 </div>
@@ -269,6 +274,10 @@ tr.row-chamado-atrasado{background-color:#fef2f2!important}
 <div class="input-group" style="flex:1;margin:0"><label>Total de registros</label><input type="text" id="csvTotal" class="form-control" value="0" style="width:80px;text-align:center" readonly></div>
 <div class="input-group" style="flex:1;margin:0"><label>RA ja existentes</label><input type="text" id="csvExistentes" class="form-control" value="0" style="width:80px;text-align:center;color:var(--danger)" readonly></div>
 </div>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<input type="checkbox" id="csvSobrescrever" style="width:16px;height:16px;cursor:pointer">
+<label for="csvSobrescrever" style="font-size:12px;color:#334155;cursor:pointer;font-weight:600;margin:0">🔄 Sobrescrever alunos já existentes (atualizar dados)</label>
+</div>
 <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:8px;display:block">Preview dos dados</label>
 <div class="csv-preview" id="csvPreview"></div>
 <div id="csvStatus" class="import-status info" style="display:none"></div>
@@ -319,6 +328,11 @@ try {
 }
 
 window.alunos = {};
+// Carregar dados salvos localmente (modo demo)
+try {
+    const salvos = localStorage.getItem('gf_alunos');
+    if(salvos) window.alunos = JSON.parse(salvos);
+} catch(e) {}
 let raEmEdicao = null;
 let chamadoEmBaixa = null;
 let csvDadosPendentes = [];
@@ -361,6 +375,143 @@ document.getElementById('btnDemo').addEventListener('click', () => {
     carregarDados();
 });
 
+window.sincronizarLocalStorage = async function() {
+    if(!db) return alert("Firebase nao disponivel.");
+    const locais = Object.values(window.alunos);
+    if(locais.length === 0) return alert("Nenhum dado local para sincronizar.");
+    if(!confirm("Deseja enviar " + locais.length + " aluno(s) para o Firebase?\n\nIsso sobrescrevera os dados na nuvem.")) return;
+
+    const batch = writeBatch(db);
+    let count = 0;
+    for(const aluno of locais) {
+        batch.set(doc(db, "alunos", aluno.ra), aluno);
+        count++;
+    }
+    try {
+        await batch.commit();
+        alert("✅ " + count + " aluno(s) sincronizado(s) com sucesso!");
+        document.getElementById('grupoSincronizar').style.display = 'none';
+    } catch(e) {
+        alert("❌ Erro ao sincronizar: " + e.message);
+    }
+};
+
+// ========== FUNÇÕES DE MESCLAGEM INTELIGENTE ==========
+window.mesclarAluno = function(local, nuvem) {
+    // Prioriza campos editáveis do modo demo (trabalho mais recente do usuário)
+    const mensalidadesMescladas = mesclarMensalidades(local.mensalidades, nuvem.mensalidades);
+    const chamadosMesclados = mesclarChamados(local.chamados, nuvem.chamados);
+
+    return {
+        ra: local.ra || nuvem.ra,
+        nome: (local.nome && local.nome.trim()) ? local.nome : nuvem.nome,
+        tel: (local.tel && local.tel.trim()) ? local.tel : nuvem.tel,
+        unidade: (local.unidade && local.unidade.trim()) ? local.unidade : nuvem.unidade,
+        categoria: local.categoria || nuvem.categoria || 'Extranet',
+        controleEnvio: (local.controleEnvio && local.controleEnvio !== 'Pendente') ? local.controleEnvio : (nuvem.controleEnvio || 'Pendente'),
+        marcado: local.marcado || nuvem.marcado || false,
+        docPendente: local.docPendente || nuvem.docPendente || false,
+        mensalidades: mensalidadesMescladas,
+        chamados: chamadosMesclados
+    };
+};
+
+window.mesclarMensalidades = function(locais, nuvem) {
+    if (!locais && !nuvem) return [];
+    if (!locais) return nuvem;
+    if (!nuvem) return locais;
+    const map = {};
+    nuvem.forEach(m => { map[m.mes] = {...m}; });
+    locais.forEach(m => {
+        if (map[m.mes]) {
+            // Se o demo marcou como pago, prioriza. Se mudou vencimento, prioriza.
+            map[m.mes] = {
+                ...map[m.mes],
+                ...m,
+                // Garante que se o demo pagou, fica pago
+                pago: m.pago || map[m.mes].pago
+            };
+        } else {
+            map[m.mes] = m;
+        }
+    });
+    return Object.values(map).sort((a,b) => a.mes - b.mes);
+};
+
+window.mesclarChamados = function(locais, nuvem) {
+    if (!locais && !nuvem) return [];
+    if (!locais) return nuvem;
+    if (!nuvem) return locais;
+    const map = {};
+    nuvem.forEach(c => { map[c.id] = c; });
+    locais.forEach(c => { map[c.id] = c; });
+    return Object.values(map).sort((a,b) => new Date(a.dataAbertura || 0) - new Date(b.dataAbertura || 0));
+};
+
+window.mesclarDadosLocais = async function() {
+    if(!db) return alert("Firebase nao disponivel.");
+    const dadosLocais = JSON.parse(localStorage.getItem('gf_alunos') || '{}');
+    const rasLocais = Object.keys(dadosLocais);
+    if(rasLocais.length === 0) return alert("Nenhum dado local encontrado para mesclar.");
+
+    const rasNuvem = Object.keys(window.alunos);
+    const soNaNuvem = rasNuvem.filter(ra => !dadosLocais[ra]).length;
+    const emAmbos = rasLocais.filter(ra => window.alunos[ra]).length;
+    const soNoLocal = rasLocais.filter(ra => !window.alunos[ra]).length;
+
+    const msg = `Resumo da mesclagem:
+
+• ${soNoLocal} aluno(s) só no demo → serão criados na nuvem
+• ${emAmbos} aluno(s) em ambos → serão mesclados (prioridade demo)
+• ${soNaNuvem} aluno(s) só na nuvem → serão mantidos
+
+Deseja continuar?`;
+
+    if(!confirm(msg)) return;
+
+    const batch = writeBatch(db);
+    let count = 0;
+    const alunosFinais = {};
+
+    // Primeiro copia tudo que está na nuvem
+    for(const ra in window.alunos) {
+        alunosFinais[ra] = window.alunos[ra];
+    }
+
+    // Depois mescla/sobrescreve com o local
+    for(const ra of rasLocais) {
+        const local = dadosLocais[ra];
+        const nuvem = window.alunos[ra];
+        alunosFinais[ra] = nuvem ? mesclarAluno(local, nuvem) : local;
+        batch.set(doc(db, "alunos", ra), alunosFinais[ra]);
+        count++;
+    }
+
+    try {
+        await batch.commit();
+        window.alunos = alunosFinais;
+        try { localStorage.setItem('gf_alunos', JSON.stringify(window.alunos)); } catch(e) {}
+        alert("✅ " + count + " aluno(s) mesclado(s) com sucesso!\n\nSeus dados do modo demo foram integrados à nuvem sem perder os alunos que só existiam online.");
+        renderizar();
+        renderizarPainel();
+        atualizarOpcoesFiltros();
+    } catch(e) {
+        alert("❌ Erro ao mesclar: " + e.message);
+    }
+};
+
+// Mostrar botão de sincronizar se há dados locais e Firebase está conectado
+function verificarSincronizacao() {
+    const grupo = document.getElementById('grupoSincronizar');
+    if(!grupo) return;
+    const totalLocais = Object.keys(window.alunos).length;
+    if(db && totalLocais > 0 && document.getElementById('login-screen').style.display === 'none') {
+        grupo.style.display = 'flex';
+    } else {
+        grupo.style.display = 'none';
+    }
+}
+
 window.toggleSidebar = function() {
     document.getElementById('mainSidebar').classList.toggle('collapsed');
 };
@@ -368,24 +519,68 @@ window.toggleSidebar = function() {
 // ========== CARREGAR DADOS ==========
 window.carregarDados = async function() {
     document.getElementById('contador').innerText = "Sincronizando...";
-    if (!db) {
-        document.getElementById('contador').innerText = "Modo Offline";
-        atualizarMesesReferencia();
-        renderizar();
-        renderizarPainel();
-        return;
-    }
+
+    // Sempre carrega dados locais primeiro (modo demo)
+    let dadosLocais = {};
     try {
-        const snap = await getDocs(collection(db, "alunos"));
-        window.alunos = {};
-        snap.forEach(d => { window.alunos[d.id] = d.data(); });
+        const salvos = localStorage.getItem('gf_alunos');
+        if(salvos) dadosLocais = JSON.parse(salvos);
+    } catch(e) {}
+
+    if (!db) {
+        window.alunos = dadosLocais;
+        document.getElementById('contador').innerText = "Modo Offline";
         atualizarOpcoesFiltros();
         atualizarMesesReferencia();
         renderizar();
         renderizarPainel();
+        verificarSincronizacao();
+        return;
+    }
+
+    try {
+        const snap = await getDocs(collection(db, "alunos"));
+        window.alunos = {};
+        let conflitos = 0;
+
+        snap.forEach(d => {
+            const ra = d.id;
+            const dadosNuvem = d.data();
+            if (dadosLocais[ra]) {
+                // Aluno existe em ambos: mesclar
+                window.alunos[ra] = mesclarAluno(dadosLocais[ra], dadosNuvem);
+                conflitos++;
+            } else {
+                window.alunos[ra] = dadosNuvem;
+            }
+        });
+
+        // Adicionar alunos que só existem no modo demo
+        for (const ra in dadosLocais) {
+            if (!window.alunos[ra]) {
+                window.alunos[ra] = dadosLocais[ra];
+            }
+        }
+
+        // Se houve conflitos, salva a mesclagem de volta no localStorage
+        if (conflitos > 0) {
+            try { localStorage.setItem('gf_alunos', JSON.stringify(window.alunos)); } catch(e) {}
+        }
+
+        atualizarOpcoesFiltros();
+        atualizarMesesReferencia();
+        renderizar();
+        renderizarPainel();
+        verificarSincronizacao();
+
+        if (conflitos > 0 && Object.keys(dadosLocais).length > 0) {
+            console.log("Mesclados " + conflitos + " aluno(s) do modo demo com a nuvem.");
+        }
     } catch(e) {
         console.error("Erro ao carregar:", e);
         document.getElementById('contador').innerText = "Erro: " + e.message;
+        window.alunos = dadosLocais;
+        atualizarOpcoesFiltros();
         atualizarMesesReferencia();
         renderizar();
         renderizarPainel();
@@ -645,6 +840,7 @@ window.salvarAluno = async function() {
     try {
         if (db) await setDoc(doc(db, "alunos", ra), dados);
         window.alunos[ra] = dados;
+        try { localStorage.setItem('gf_alunos', JSON.stringify(window.alunos)); } catch(e) {}
         fecharModal();
         renderizar();
         renderizarPainel();
@@ -869,6 +1065,7 @@ window.renderizarPainel = function() {
 // ========== TOGGLES E ACOES RAPIDAS ==========
 window.toggleMarcador = async function(ra) {
     window.alunos[ra].marcado = !window.alunos[ra].marcado;
+    try { localStorage.setItem('gf_alunos', JSON.stringify(window.alunos)); } catch(e) {}
     if (db) {
         try { await updateDoc(doc(db, "alunos", ra), { marcado: window.alunos[ra].marcado }); }
         catch(e) { console.error(e); }
@@ -879,6 +1076,7 @@ window.toggleMarcador = async function(ra) {
 window.toggleDoc = async function(ra) {
     const aluno = window.alunos[ra];
     aluno.docPendente = !aluno.docPendente;
+    try { localStorage.setItem('gf_alunos', JSON.stringify(window.alunos)); } catch(e) {}
     if (db) {
         try { await updateDoc(doc(db, "alunos", ra), { docPendente: aluno.docPendente }); }
         catch(e) { console.error(e); }
@@ -892,6 +1090,7 @@ window.toggleDoc = async function(ra) {
 
 window.togglePagamento = async function(ra, idx) {
     window.alunos[ra].mensalidades[idx].pago = !window.alunos[ra].mensalidades[idx].pago;
+    try { localStorage.setItem('gf_alunos', JSON.stringify(window.alunos)); } catch(e) {}
     if (db) {
         try { await setDoc(doc(db, "alunos", ra), window.alunos[ra]); }
         catch(e) { console.error(e); }
@@ -902,6 +1101,7 @@ window.togglePagamento = async function(ra, idx) {
 
 window.alterarStatus = async function(ra, val) {
     window.alunos[ra].controleEnvio = val;
+    try { localStorage.setItem('gf_alunos', JSON.stringify(window.alunos)); } catch(e) {}
     if (db) {
         try { await updateDoc(doc(db, "alunos", ra), { controleEnvio: val }); }
         catch(e) { console.error(e); }
@@ -1014,7 +1214,8 @@ window.processarArquivoCSV = function(input) {
         html += '</tbody></table>';
         previewDiv.innerHTML = html;
 
-        const novos = csvDadosPendentes.filter(d => !d.jaExiste);
+        const sobrescrever = document.getElementById('csvSobrescrever').checked;
+        const novos = csvDadosPendentes.filter(d => !d.jaExiste || sobrescrever);
         const btn = document.getElementById('btnConfirmarImport');
         if(novos.length > 0) {
             btn.disabled = false;
@@ -1031,7 +1232,8 @@ window.processarArquivoCSV = function(input) {
 };
 
 window.confirmarImportacao = async function() {
-    const novos = csvDadosPendentes.filter(d => !d.jaExiste);
+    const sobrescrever = document.getElementById('csvSobrescrever').checked;
+        const novos = csvDadosPendentes.filter(d => !d.jaExiste || sobrescrever);
     if(novos.length === 0) return;
 
     const sem = document.getElementById('semestreSelect').value;
@@ -1081,6 +1283,9 @@ window.confirmarImportacao = async function() {
             catch(e) { console.error(e); }
         }
         window.alunos[d.ra] = obj;
+
+        // Salvar no localStorage para persistir no modo demo
+        try { localStorage.setItem('gf_alunos', JSON.stringify(window.alunos)); } catch(e) {}
 
         processados++;
         progressFill.style.width = Math.round((processados / novos.length) * 100) + '%';
